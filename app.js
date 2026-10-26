@@ -53,11 +53,10 @@ function initMap() {
   // Posicionar controle de zoom no canto inferior direito
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-  // Camada de mapa limpa e moderna (CartoDB Voyager / OSM)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    subdomains: 'abcd',
-    maxZoom: 20
+  // Camada de mapa oficial OpenStreetMap (100% gratuita e sem chave de API)
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
   }).addTo(map);
 
   markersLayer = L.layerGroup().addTo(map);
