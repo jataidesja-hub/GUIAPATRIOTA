@@ -10,7 +10,10 @@ let filtroTipoServico = 'todos';
 let termoBusca = '';
 let map = null;
 let markersLayer = null;
+let grayMarkersLayer = null;
 let markersById = {};
+let comerciosLocaisCinza = [];
+let mostrarPontosCinzas = true;
 let tempPickMarker = null;
 let isPickingOnMap = false;
 let currentMode = 'public'; // 'public' | 'admin'
@@ -58,6 +61,7 @@ function initMap() {
   }).addTo(map);
 
   markersLayer = L.layerGroup().addTo(map);
+  grayMarkersLayer = L.layerGroup();
 
   // Evento de clique no mapa (usado no modo ADM para escolher ponto exato)
   map.on('click', async (e) => {
@@ -72,7 +76,9 @@ function initMap() {
 }
 
 function criarIconePino(posicao) {
-  const classeCor = posicao === 'esquerda' ? 'esquerda' : 'direita';
+  const classeCor = posicao === 'cinza' ? 'cinza' : posicao === 'esquerda' ? 'esquerda' : 'direita';
+  const tamanho = posicao === 'cinza' ? [28, 28] : [36, 36];
+  const ancora = posicao === 'cinza' ? [14, 28] : [18, 36];
   return L.divIcon({
     className: 'custom-pin-wrapper',
     html: `
@@ -80,9 +86,9 @@ function criarIconePino(posicao) {
         <div class="marker-pin-inner"></div>
       </div>
     `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 36],
-    popupAnchor: [0, -34]
+    iconSize: tamanho,
+    iconAnchor: ancora,
+    popupAnchor: [0, -28]
   });
 }
 
@@ -223,6 +229,16 @@ function setupEventListeners() {
   const btnToggleSidebar = document.getElementById('btnToggleSidebar');
   const btnCloseSidebarMobile = document.getElementById('btnCloseSidebarMobile');
   const inputWhatsapp = document.getElementById('inputWhatsapp');
+  const inputBuscaRadar = document.getElementById('inputBuscaRadar');
+
+  if (inputBuscaRadar) {
+    inputBuscaRadar.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        carregarComerciosLocaisRadar(true);
+      }
+    });
+  }
 
   searchInput.addEventListener('input', (e) => {
     termoBusca = e.target.value.trim().toLowerCase();
@@ -332,6 +348,7 @@ function renderAll() {
   atualizarSelectCategorias();
   const filtrados = obterPrestadoresFiltrados();
   renderMarkers(filtrados);
+  renderGrayMarkers();
   renderSidebarList(filtrados);
   renderAdminList();
   lucide.createIcons();
@@ -683,9 +700,20 @@ function switchView(mode) {
     btnViewPublic.classList.add('flex');
     btnViewAdmin.classList.add('hidden');
     window.location.hash = 'admin';
+    if (mostrarPontosCinzas && !map.hasLayer(grayMarkersLayer)) {
+      grayMarkersLayer.addTo(map);
+    }
+    if (comerciosLocaisCinza.length === 0) {
+      setTimeout(() => carregarComerciosLocaisRadar(false), 350);
+    } else {
+      renderGrayMarkers();
+    }
   } else {
     adminPanel.classList.add('hidden');
     adminPanel.classList.remove('flex');
+    if (map.hasLayer(grayMarkersLayer)) {
+      map.removeLayer(grayMarkersLayer);
+    }
     toggleMapPickMode(false);
     removerPinoTemporario();
     badgeMode.textContent = 'Acesso Livre';
@@ -1126,6 +1154,362 @@ async function enviarLocaisParaFirebase() {
     console.error(err);
     mostrarToast('Erro ao sincronizar no Firebase. Verifique as regras do Firestore.');
   }
+}
+
+// ==========================================
+// RADAR DE COMÉRCIOS E RESTAURANTES LOCAIS (PONTOS CINZAS - ADM)
+// ==========================================
+function togglePontosCinzasVisiveis(visivel) {
+  mostrarPontosCinzas = Boolean(visivel);
+  if (!grayMarkersLayer || !map) return;
+
+  if (mostrarPontosCinzas && currentMode === 'admin') {
+    if (!map.hasLayer(grayMarkersLayer)) {
+      grayMarkersLayer.addTo(map);
+    }
+    renderGrayMarkers();
+  } else {
+    if (map.hasLayer(grayMarkersLayer)) {
+      map.removeLayer(grayMarkersLayer);
+    }
+  }
+}
+
+function filtrarRadarRapido(termo) {
+  const input = document.getElementById('inputBuscaRadar');
+  if (!input) return;
+  input.value = termo === 'todos' ? '' : termo;
+  carregarComerciosLocaisRadar(true);
+}
+
+function mapearCategoriaOSM(tags = {}) {
+  const t = tags.amenity || tags.shop || tags.office || tags.tourism || tags.craft || '';
+  const mapa = {
+    restaurant: 'Alimentação e Restaurantes',
+    fast_food: 'Alimentação e Restaurantes',
+    cafe: 'Alimentação e Restaurantes',
+    bar: 'Alimentação e Restaurantes',
+    pub: 'Alimentação e Restaurantes',
+    ice_cream: 'Alimentação e Restaurantes',
+    bakery: 'Alimentação e Padaria',
+    supermarket: 'Comércio e Supermercados',
+    convenience: 'Comércio e Conveniência',
+    pharmacy: 'Saúde e Farmácias',
+    clinic: 'Saúde, Médicos e Dentistas',
+    doctors: 'Saúde, Médicos e Dentistas',
+    dentist: 'Saúde, Médicos e Dentistas',
+    hospital: 'Saúde, Médicos e Dentistas',
+    veterinary: 'Pet Shop e Veterinária',
+    pet: 'Pet Shop e Veterinária',
+    car_repair: 'Mecânica e Automotivo',
+    car_wash: 'Mecânica e Automotivo',
+    car_parts: 'Mecânica e Automotivo',
+    fuel: 'Posto de Combustível',
+    clothes: 'Comércio e Lojas',
+    shoes: 'Comércio e Lojas',
+    electronics: 'Tecnologia e Informática',
+    mobile_phone: 'Tecnologia e Informática',
+    computer: 'Tecnologia e Informática',
+    hairdresser: 'Beleza e Barbearia',
+    beauty: 'Beleza e Barbearia',
+    hardware: 'Construção, Reforma e Elétrica',
+    doityourself: 'Construção, Reforma e Elétrica',
+    lawyer: 'Advocacia e Jurídico',
+    accountant: 'Contabilidade e Consultoria',
+    hotel: 'Hotelaria e Turismo'
+  };
+  return mapa[t] || 'Comércio e Serviços Locais';
+}
+
+function formatarEnderecoTagsOSM(tags = {}, fallbackCidade = 'Juazeiro-BA / Petrolina-PE') {
+  const rua = tags['addr:street'] || '';
+  const num = tags['addr:housenumber'] || '';
+  const bairro = tags['addr:suburb'] || tags['addr:neighbourhood'] || '';
+  const cidade = tags['addr:city'] || '';
+  const partes = [
+    rua ? (num ? `${rua}, ${num}` : rua) : '',
+    bairro,
+    cidade
+  ].filter(Boolean);
+  return partes.length > 0 ? partes.join(' - ') : fallbackCidade;
+}
+
+async function carregarComerciosLocaisRadar(exibirNotificacao = true) {
+  const btn = document.getElementById('btnBuscarRadar');
+  const termo = (document.getElementById('inputBuscaRadar')?.value || '').trim();
+  const originalHtml = btn ? btn.innerHTML : '';
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>Buscando...</span>`;
+  }
+
+  try {
+    const b = map.getBounds();
+    const south = Math.max(b.getSouth(), map.getCenter().lat - 0.06);
+    const north = Math.min(b.getNorth(), map.getCenter().lat + 0.06);
+    const west = Math.max(b.getWest(), map.getCenter().lng - 0.06);
+    const east = Math.min(b.getEast(), map.getCenter().lng + 0.06);
+
+    let resultados = [];
+
+    if (termo) {
+      // Busca direcionada via Nominatim na região visível do mapa
+      const viewbox = `${west},${north},${east},${south}`;
+      const urlNom = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&extratags=1&limit=40&bounded=1&viewbox=${viewbox}&q=${encodeURIComponent(termo)}`;
+      const resp = await fetch(urlNom, { headers: { 'Accept-Language': 'pt-BR' } });
+      const data = await resp.json();
+
+      if (Array.isArray(data)) {
+        resultados = data.map((item) => {
+          const addr = item.address || {};
+          const extra = item.extratags || {};
+          const nomeLocal = item.name || (item.display_name ? item.display_name.split(',')[0] : termo);
+          const rua = addr.road || addr.pedestrian || '';
+          const numero = addr.house_number || '';
+          const bairro = addr.suburb || addr.neighbourhood || '';
+          const cidade = addr.city || addr.town || addr.municipality || '';
+          const endCurto = [
+            rua ? (numero ? `${rua}, ${numero}` : rua) : '',
+            bairro,
+            cidade
+          ].filter(Boolean).join(' - ') || item.display_name;
+
+          return {
+            nome: nomeLocal,
+            tipoServico: mapearCategoriaOSM({ [item.class]: item.type }),
+            servicos: `Estabelecimento comercial (${termo}).`,
+            endereco: endCurto,
+            whatsapp: extra.phone || extra['contact:phone'] || extra['contact:whatsapp'] || '',
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon)
+          };
+        });
+      }
+    } else {
+      // Busca ampla de comércios, restaurantes, clínicas, oficinas e lojas via Overpass API
+      const overpassQuery = `
+        [out:json][timeout:15];
+        (
+          node["amenity"~"restaurant|fast_food|cafe|bar|bakery|pharmacy|clinic|doctors|dentist|car_repair|fuel|veterinary"](${south},${west},${north},${east});
+          node["shop"](${south},${west},${north},${east});
+          way["amenity"~"restaurant|fast_food|cafe|bar|bakery|pharmacy|clinic|doctors|dentist|car_repair"](${south},${west},${north},${east});
+          way["shop"~"supermarket|mall|convenience|clothes|hardware|car_repair|bakery|beauty|hairdresser"](${south},${west},${north},${east});
+        );
+        out center 180;
+      `;
+
+      const resp = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: overpassQuery
+      });
+      const json = await resp.json();
+
+      if (json && Array.isArray(json.elements)) {
+        resultados = json.elements
+          .filter((el) => el.tags && el.tags.name)
+          .map((el) => {
+            const tags = el.tags;
+            const lat = el.lat || (el.center && el.center.lat);
+            const lng = el.lon || (el.center && el.center.lon);
+            const cat = mapearCategoriaOSM(tags);
+            const fone = tags['contact:whatsapp'] || tags['contact:phone'] || tags.phone || '';
+            const subtipo = tags.cuisine || tags.shop || tags.amenity || 'Comércio local';
+
+            return {
+              nome: tags.name,
+              tipoServico: cat,
+              servicos: `Atendimento comercial e serviços (${subtipo}).`,
+              endereco: formatarEnderecoTagsOSM(tags),
+              whatsapp: fone,
+              lat: parseFloat(lat),
+              lng: parseFloat(lng)
+            };
+          })
+          .filter((r) => !isNaN(r.lat) && !isNaN(r.lng));
+      }
+    }
+
+    comerciosLocaisCinza = resultados;
+    renderGrayMarkers();
+
+    if (exibirNotificacao) {
+      mostrarToast(`${comerciosLocaisCinza.length} comércios/restaurantes locais carregados em cinza!`);
+    }
+  } catch (err) {
+    console.error('Erro ao buscar comércios locais:', err);
+    if (exibirNotificacao) {
+      mostrarToast('Não foi possível carregar o radar agora. Tente aproximar o mapa.');
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      lucide.createIcons();
+    }
+  }
+}
+
+function jaEstaCadastrado(ponto) {
+  return prestadores.some((p) => {
+    const mesmoNome = p.nome && ponto.nome && p.nome.trim().toLowerCase() === ponto.nome.trim().toLowerCase();
+    const latP = parseFloat(p.lat);
+    const lngP = parseFloat(p.lng);
+    const mesmaCoord = !isNaN(latP) && !isNaN(lngP) &&
+      Math.abs(latP - ponto.lat) < 0.00025 &&
+      Math.abs(lngP - ponto.lng) < 0.00025;
+    return mesmoNome || mesmaCoord;
+  });
+}
+
+function renderGrayMarkers() {
+  if (!grayMarkersLayer) return;
+  grayMarkersLayer.clearLayers();
+
+  const badgeCinza = document.getElementById('badgeCountCinza');
+  const naoClassificados = comerciosLocaisCinza.filter((item) => !jaEstaCadastrado(item));
+
+  if (badgeCinza) {
+    badgeCinza.textContent = `${naoClassificados.length} locais`;
+  }
+
+  if (currentMode !== 'admin' || !mostrarPontosCinzas) return;
+
+  naoClassificados.forEach((item) => {
+    const idxOriginal = comerciosLocaisCinza.indexOf(item);
+    const foneLimpo = formatarTelefoneExibicao(item.whatsapp || '');
+
+    const popupHtml = `
+      <div class="font-sans text-slate-800">
+        <div class="bg-slate-700 text-white p-3.5">
+          <span class="inline-block text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-900/60 text-slate-200 mb-1">
+            PONTO LOCAL • NÃO CLASSIFICADO
+          </span>
+          <h3 class="font-bold text-base leading-snug">${escapeHtml(item.nome)}</h3>
+          <p class="text-xs text-slate-200 font-medium mt-0.5">${escapeHtml(item.tipoServico)}</p>
+        </div>
+
+        <div class="p-3.5 space-y-2.5 bg-white">
+          <div>
+            <p class="text-[11px] font-bold uppercase text-slate-400">Endereço</p>
+            <p class="text-xs text-slate-600 mt-0.5">${escapeHtml(item.endereco)}</p>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">WhatsApp / Telefone (Opcional)</label>
+            <input
+              type="text"
+              id="zap-cinza-${idxOriginal}"
+              value="${escapeHtml(foneLimpo)}"
+              placeholder="(87) 99999-9999"
+              class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+            />
+          </div>
+
+          <div class="pt-1">
+            <p class="text-[11px] font-bold text-slate-700 mb-1.5 text-center">Classificar este local como:</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onclick="classificarPontoCinzaDireto(${idxOriginal}, 'direita')"
+                class="py-2 px-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1.5 transition"
+              >
+                <span class="w-2 h-2 rounded-full bg-white"></span>
+                <span>Direita (Azul)</span>
+              </button>
+
+              <button
+                type="button"
+                onclick="classificarPontoCinzaDireto(${idxOriginal}, 'esquerda')"
+                class="py-2 px-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1.5 transition"
+              >
+                <span class="w-2 h-2 rounded-full bg-white"></span>
+                <span>Esquerda (Verm.)</span>
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onclick="preencherFormularioComPontoCinza(${idxOriginal})"
+            class="w-full py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl text-center transition"
+          >
+            Editar detalhes no formulário antes de salvar
+          </button>
+        </div>
+      </div>
+    `;
+
+    const marker = L.marker([item.lat, item.lng], {
+      icon: criarIconePino('cinza')
+    }).bindPopup(popupHtml);
+
+    grayMarkersLayer.addLayer(marker);
+  });
+}
+
+async function classificarPontoCinzaDireto(index, posicao) {
+  if (!isAdminAuthenticated()) {
+    mostrarToast('Faça login no Painel ADM primeiro.');
+    return;
+  }
+
+  const item = comerciosLocaisCinza[index];
+  if (!item) return;
+
+  const inputZapPopup = document.getElementById(`zap-cinza-${index}`);
+  const whatsappFinal = inputZapPopup ? inputZapPopup.value.trim() : (item.whatsapp || '');
+
+  const novoItem = {
+    id: String(Date.now()),
+    nome: item.nome,
+    tipoServico: item.tipoServico,
+    servicos: item.servicos || item.tipoServico,
+    endereco: item.endereco,
+    semEndereco: false,
+    posicao,
+    whatsapp: whatsappFinal,
+    lat: item.lat,
+    lng: item.lng,
+    criadoEm: new Date().toISOString()
+  };
+
+  prestadores.unshift(novoItem);
+  salvarDadosLocal();
+  map.closePopup();
+  renderAll();
+
+  const labelPos = posicao === 'esquerda' ? 'Esquerda (Vermelho)' : 'Direita (Azul)';
+  mostrarToast(`"${item.nome}" marcado como ${labelPos}!`);
+
+  if (db && isFirebaseConnected) {
+    try {
+      await db.collection('prestadores').doc(String(novoItem.id)).set(novoItem);
+    } catch (err) {
+      console.error('Erro ao salvar no Firebase:', err);
+    }
+  }
+}
+
+function preencherFormularioComPontoCinza(index) {
+  const item = comerciosLocaisCinza[index];
+  if (!item) return;
+
+  const inputZapPopup = document.getElementById(`zap-cinza-${index}`);
+  const whatsappFinal = inputZapPopup ? inputZapPopup.value.trim() : (item.whatsapp || '');
+
+  resetAdminForm();
+  toggleSemEndereco(false);
+  document.getElementById('inputNome').value = item.nome || '';
+  document.getElementById('inputTipoServico').value = item.tipoServico || '';
+  document.getElementById('inputWhatsapp').value = formatarTelefoneExibicao(whatsappFinal);
+  document.getElementById('inputServicos').value = item.servicos || '';
+  document.getElementById('inputEndereco').value = item.endereco || '';
+  definirCoordenadasFormulario(item.lat, item.lng);
+
+  map.closePopup();
+  document.getElementById('adminForm').scrollIntoView({ behavior: 'smooth' });
+  mostrarToast('Dados preenchidos no formulário ADM! Escolha a cor e salve.');
 }
 
 // ==========================================
