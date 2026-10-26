@@ -330,8 +330,12 @@ function atualizarBotoesFiltroPosicao() {
     (filtroPosicao === 'esquerda' ? 'bg-red-600 text-white shadow' : 'text-red-700');
 }
 
+function obterPrestadoresAprovados() {
+  return prestadores.filter((item) => item.status !== 'pendente');
+}
+
 function obterPrestadoresFiltrados() {
-  return prestadores.filter((item) => {
+  return obterPrestadoresAprovados().filter((item) => {
     const matchPosicao = filtroPosicao === 'todos' || item.posicao === filtroPosicao;
     const matchServico = filtroTipoServico === 'todos' || item.tipoServico === filtroTipoServico;
     const textoItem = `${item.nome} ${item.tipoServico} ${item.servicos} ${item.endereco}`.toLowerCase();
@@ -355,9 +359,11 @@ function renderAll() {
 }
 
 function atualizarContadores() {
-  const total = prestadores.length;
-  const totalDireita = prestadores.filter((p) => p.posicao === 'direita').length;
-  const totalEsquerda = prestadores.filter((p) => p.posicao === 'esquerda').length;
+  const aprovados = obterPrestadoresAprovados();
+  const pendentes = prestadores.filter((p) => p.status === 'pendente');
+  const total = aprovados.length;
+  const totalDireita = aprovados.filter((p) => p.posicao === 'direita').length;
+  const totalEsquerda = aprovados.filter((p) => p.posicao === 'esquerda').length;
 
   document.getElementById('countTodosTop').textContent = total;
   document.getElementById('countDireitaTop').textContent = totalDireita;
@@ -368,12 +374,24 @@ function atualizarContadores() {
   document.getElementById('countEsquerdaMob').textContent = totalEsquerda;
 
   document.getElementById('adminTotalCount').textContent = total;
+
+  const badgePendentesAdmin = document.getElementById('adminPendentesCount');
+  if (badgePendentesAdmin) {
+    badgePendentesAdmin.textContent = `${pendentes.length} ${pendentes.length === 1 ? 'pendente' : 'pendentes'}`;
+  }
+
+  const badgeTop = document.getElementById('badgeTopPendentes');
+  if (badgeTop) {
+    badgeTop.textContent = pendentes.length;
+    badgeTop.classList.toggle('hidden', pendentes.length === 0);
+  }
 }
 
 function atualizarSelectCategorias() {
   const select = document.getElementById('serviceTypeFilter');
   const valorAtual = select.value;
-  const categorias = [...new Set(prestadores.map((p) => p.tipoServico).filter(Boolean))].sort();
+  const aprovados = obterPrestadoresAprovados();
+  const categorias = [...new Set(aprovados.map((p) => p.tipoServico).filter(Boolean))].sort();
 
   select.innerHTML = `<option value="todos">Todos os tipos de serviço (${categorias.length})</option>`;
   categorias.forEach((cat) => {
@@ -900,6 +918,7 @@ async function saveProvider(e) {
     whatsapp,
     lat: temCoordenadas ? rawLat : null,
     lng: temCoordenadas ? rawLng : null,
+    status: 'aprovado',
     criadoEm: new Date().toISOString()
   };
 
@@ -1015,16 +1034,181 @@ function resetAdminForm() {
   lucide.createIcons();
 }
 
+function copiarLinkCadastro() {
+  const url = new URL('./cadastro.html', window.location.href).href;
+  navigator.clipboard.writeText(url).then(() => {
+    mostrarToast('Link de cadastro copiado! Envie para os prestadores.');
+  }).catch(() => {
+    prompt('Copie o link de cadastro abaixo:', url);
+  });
+}
+
+function usarMinhaLocalizacaoADM() {
+  if (!navigator.geolocation) {
+    mostrarToast('Seu navegador não suporta geolocalização.');
+    return;
+  }
+  mostrarToast('Obtendo sua localização pelo GPS...');
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      toggleSemEndereco(false);
+      definirCoordenadasFormulario(lat, lng);
+      map.flyTo([lat, lng], 17);
+      await buscarEnderecoReverso(lat, lng);
+      mostrarToast('Localização atual aplicada!');
+    },
+    () => {
+      mostrarToast('Não foi possível acessar seu GPS. Permita a localização no navegador.');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+async function aprovarCadastroPendente(id) {
+  if (!isAdminAuthenticated()) {
+    mostrarToast('Faça login no Painel ADM primeiro.');
+    return;
+  }
+
+  const index = prestadores.findIndex((p) => p.id === id);
+  if (index === -1) return;
+
+  prestadores[index].status = 'aprovado';
+  const aprovado = prestadores[index];
+
+  salvarDadosLocal();
+  renderAll();
+  mostrarToast(`"${aprovado.nome}" aprovado e publicado no Mapa & Lista!`);
+
+  if (db && isFirebaseConnected) {
+    try {
+      await db.collection('prestadores').doc(String(id)).set(aprovado);
+    } catch (err) {
+      console.error('Erro ao aprovar no Firebase:', err);
+    }
+  }
+}
+
+async function reprovarCadastroPendente(id) {
+  if (!isAdminAuthenticated()) {
+    mostrarToast('Faça login no Painel ADM primeiro.');
+    return;
+  }
+
+  const item = prestadores.find((p) => p.id === id);
+  if (!item) return;
+
+  if (!confirm(`Deseja REPROVAR e excluir a solicitação de "${item.nome}"?`)) {
+    return;
+  }
+
+  prestadores = prestadores.filter((p) => p.id !== id);
+  salvarDadosLocal();
+  renderAll();
+  mostrarToast('Solicitação reprovada e removida.');
+
+  if (db && isFirebaseConnected) {
+    try {
+      await db.collection('prestadores').doc(String(id)).delete();
+    } catch (err) {
+      console.error('Erro ao reprovar no Firebase:', err);
+    }
+  }
+}
+
+function visualizarPendenteNoMapa(id) {
+  const item = prestadores.find((p) => p.id === id);
+  if (!item) return;
+  const lat = parseFloat(item.lat);
+  const lng = parseFloat(item.lng);
+  if (!isNaN(lat) && !isNaN(lng)) {
+    definirCoordenadasFormulario(lat, lng);
+    map.flyTo([lat, lng], 16);
+  }
+}
+
 function renderAdminList() {
+  const containerPendentes = document.getElementById('adminPendentesList');
   const container = document.getElementById('adminProvidersList');
   if (!container) return;
 
-  if (prestadores.length === 0) {
+  const pendentes = prestadores.filter((p) => p.status === 'pendente');
+  const aprovados = obterPrestadoresAprovados();
+
+  if (containerPendentes) {
+    if (pendentes.length === 0) {
+      containerPendentes.innerHTML = `<p class="text-[11px] text-amber-800/70 text-center py-2">Nenhuma solicitação aguardando aprovação.</p>`;
+    } else {
+      containerPendentes.innerHTML = pendentes
+        .map((item) => {
+          const isEsquerda = item.posicao === 'esquerda';
+          const badgeCor = isEsquerda
+            ? 'bg-red-100 text-red-800 border-red-200'
+            : 'bg-blue-100 text-blue-800 border-blue-200';
+          const labelCor = isEsquerda ? 'Esquerda • Vermelho' : 'Direita • Azul';
+          const temCoords = !isNaN(parseFloat(item.lat)) && !isNaN(parseFloat(item.lng));
+          const infoEnd = item.endereco && item.endereco.trim()
+            ? item.endereco
+            : 'Sem endereço fixo (Apenas lista)';
+
+          return `
+            <div class="p-3 bg-white rounded-xl border-2 border-amber-300 shadow-sm space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCor} mb-1">
+                    ${labelCor}
+                  </span>
+                  <h4 class="font-bold text-xs sm:text-sm text-slate-900">${escapeHtml(item.nome)}</h4>
+                  <p class="text-[11px] font-semibold text-slate-600">${escapeHtml(item.tipoServico)} • ${escapeHtml(formatarTelefoneExibicao(item.whatsapp))}</p>
+                </div>
+                ${
+                  temCoords
+                    ? `<button onclick="visualizarPendenteNoMapa('${item.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold shrink-0">Ver Ponto</button>`
+                    : ''
+                }
+              </div>
+
+              <p class="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">${escapeHtml(item.servicos)}</p>
+              <p class="text-[11px] text-slate-500">${escapeHtml(infoEnd)}</p>
+
+              <div class="flex items-center gap-1.5 pt-1">
+                <button
+                  onclick="aprovarCadastroPendente('${item.id}')"
+                  class="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1 shadow-sm transition"
+                >
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                  <span>Aprovar</span>
+                </button>
+                <button
+                  onclick="editarPrestador('${item.id}')"
+                  class="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                  title="Editar antes de aprovar"
+                >
+                  <span>Editar</span>
+                </button>
+                <button
+                  onclick="reprovarCadastroPendente('${item.id}')"
+                  class="py-2 px-3 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition"
+                >
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  <span>Reprovar</span>
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+  }
+
+  if (aprovados.length === 0) {
     container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Nenhum cadastro ativo.</p>`;
     return;
   }
 
-  container.innerHTML = prestadores
+  container.innerHTML = aprovados
     .map((item) => {
       const isEsquerda = item.posicao === 'esquerda';
       const corBolinha = isEsquerda ? 'bg-red-600' : 'bg-blue-600';
@@ -1471,6 +1655,7 @@ async function classificarPontoCinzaDireto(index, posicao) {
     whatsapp: whatsappFinal,
     lat: item.lat,
     lng: item.lng,
+    status: 'aprovado',
     criadoEm: new Date().toISOString()
   };
 

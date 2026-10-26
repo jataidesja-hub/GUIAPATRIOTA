@@ -73,6 +73,11 @@
 
     <!-- RIGHT ACTIONS: MODE SWITCH -->
     <div class="flex items-center gap-2">
+      <a href="./cadastro.html" class="px-3 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1.5 shadow-lg shadow-blue-600/20">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Solicitar Cadastro</span>
+      </a>
+
       <button id="btnViewPublic" onclick="switchView('public')" class="hidden px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition items-center gap-1.5">
         <i data-lucide="globe" class="w-4 h-4 text-emerald-400"></i>
         <span>Ver Tela Livre</span>
@@ -81,6 +86,7 @@
       <button id="btnViewAdmin" onclick="openAdminAccess()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-amber-500/20">
         <i data-lucide="shield-check" class="w-4 h-4"></i>
         <span id="lblAdminBtn">Área ADM</span>
+        <span id="badgeTopPendentes" class="hidden px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-red-600 text-white">0</span>
       </button>
     </div>
   </header>
@@ -231,6 +237,44 @@
 
       <!-- Admin Content Scroll -->
       <div class="flex-1 overflow-y-auto p-4 space-y-5">
+
+        <!-- BARRA DO LINK PÚBLICO DE CADASTRO + PENDENTES DE APROVAÇÃO -->
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h3 class="font-bold text-amber-950 text-xs sm:text-sm flex items-center gap-1.5">
+                <i data-lucide="share-2" class="w-4 h-4 text-amber-600"></i>
+                <span>Link de Cadastro para Clientes</span>
+              </h3>
+              <p class="text-[11px] text-amber-800">Envie este link para os prestadores se cadastrarem e você só aprovar</p>
+            </div>
+            <button
+              type="button"
+              onclick="copiarLinkCadastro()"
+              class="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shrink-0 flex items-center gap-1.5 shadow-sm transition"
+            >
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Copiar Link</span>
+            </button>
+          </div>
+
+          <!-- Lista de Cadastros Pendentes de Aprovação -->
+          <div class="pt-2 border-t border-amber-200/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-700"></i>
+                Aguardando sua Aprovação
+              </span>
+              <span id="adminPendentesCount" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-200 text-amber-950">
+                0 pendentes
+              </span>
+            </div>
+
+            <div id="adminPendentesList" class="space-y-2">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
 
         <!-- RADAR DE COMÉRCIOS E RESTAURANTES LOCAIS (PONTOS CINZAS) -->
         <div class="bg-slate-900 text-white rounded-2xl p-4 space-y-3 shadow-md border border-slate-800">
@@ -432,14 +476,25 @@
 
               <!-- Coordinate Picker Actions -->
               <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <button
-                  type="button"
-                  onclick="toggleMapPickMode(true)"
-                  class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <i data-lucide="crosshair" class="w-3.5 h-3.5 text-emerald-600"></i>
-                  <span>Ou clique no mapa para marcar ponto</span>
-                </button>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onclick="usarMinhaLocalizacaoADM()"
+                    class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                  >
+                    <i data-lucide="locate-fixed" class="w-3.5 h-3.5 text-blue-600"></i>
+                    <span>Minha Localização (GPS)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onclick="toggleMapPickMode(true)"
+                    class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                  >
+                    <i data-lucide="crosshair" class="w-3.5 h-3.5 text-emerald-600"></i>
+                    <span>Clicar no mapa</span>
+                  </button>
+                </div>
 
                 <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
                   <span>Lat:</span>

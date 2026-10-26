@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solicitar Cadastro — Guia Comercial &amp; Serviços</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="./firebase-config.js"></script>
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="bg-slate-100 min-h-screen font-sans text-slate-900 overflow-y-auto h-auto w-full select-text">
+
+  <!-- HEADER -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 px-4 py-3.5 sticky top-0 z-30 shadow-md">
+    <div class="max-w-xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-slate-700 to-red-600 flex items-center justify-center shadow-inner">
+          <i data-lucide="map-pin" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-base tracking-tight leading-none">GUIA COMERCIAL</h1>
+          <p class="text-[11px] text-slate-400 mt-0.5">Juazeiro-BA &amp; Petrolina-PE — Cadastro de Prestadores</p>
+        </div>
+      </div>
+
+      <a href="./index.html" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+        <i data-lucide="map" class="w-3.5 h-3.5 text-blue-400"></i>
+        <span>Ver Mapa</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-xl mx-auto p-4 sm:p-6 pb-16">
+
+    <!-- TELA DE SUCESSO (OCULTA INICIALMENTE) -->
+    <div id="boxSucesso" class="hidden bg-white border border-emerald-200 rounded-3xl p-8 text-center shadow-xl space-y-4 my-6">
+      <div class="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+        <i data-lucide="check-circle-2" class="w-9 h-9"></i>
+      </div>
+      <h2 class="text-xl font-extrabold text-slate-900">Cadastro Enviado para Aprovação!</h2>
+      <p class="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+        Recebemos as informações do seu estabelecimento/serviço. Assim que o administrador aprovar, seu cadastro aparecerá no Mapa e na Lista Lateral!
+      </p>
+      <div class="pt-3 flex flex-col sm:flex-row gap-2.5 justify-center">
+        <button onclick="novoEnvio()" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition">
+          Enviar Outro Cadastro
+        </button>
+        <a href="./index.html" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 transition">
+          Ir para o Mapa Principal
+        </a>
+      </div>
+    </div>
+
+    <!-- CARD DO FORMULÁRIO -->
+    <form id="formCadastroPublico" onsubmit="enviarSolicitacaoCadastro(event)" class="bg-slate-50 border border-slate-200 rounded-3xl p-5 sm:p-6 space-y-5 shadow-lg">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h2 class="font-bold text-slate-800 text-base flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-blue-600"></i>
+          <span>Novo Cadastro no Mapa &amp; Lista</span>
+        </h2>
+        <span class="text-[11px] font-semibold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-200">
+          Sujeito a aprovação
+        </span>
+      </div>
+
+      <!-- 1. COR DA MARCAÇÃO -->
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+          1. Cor da Marcação no Mapa e Lista *
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="cursor-pointer">
+            <input type="radio" name="posicao" value="direita" class="peer sr-only" checked />
+            <div class="p-3.5 rounded-2xl border-2 border-slate-200 bg-white peer-checked:border-blue-600 peer-checked:bg-blue-50/70 transition flex items-center gap-3">
+              <span class="w-4 h-4 rounded-full bg-blue-600 shrink-0 ring-4 ring-blue-600/20"></span>
+              <div>
+                <div class="font-bold text-xs sm:text-sm text-blue-950">DIREITA</div>
+                <div class="text-xs text-blue-700 font-medium">Pino Azul</div>
+              </div>
+            </div>
+          </label>
+
+          <label class="cursor-pointer">
+            <input type="radio" name="posicao" value="esquerda" class="peer sr-only" />
+            <div class="p-3.5 rounded-2xl border-2 border-slate-200 bg-white peer-checked:border-red-600 peer-checked:bg-red-50/70 transition flex items-center gap-3">
+              <span class="w-4 h-4 rounded-full bg-red-600 shrink-0 ring-4 ring-red-600/20"></span>
+              <div>
+                <div class="font-bold text-xs sm:text-sm text-red-950">ESQUERDA</div>
+                <div class="text-xs text-red-700 font-medium">Pino Vermelho</div>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- 2. NOME DO ESTABELECIMENTO OU PRESTADOR -->
+      <div>
+        <label for="cadNome" class="block text-xs font-bold text-slate-700 mb-1">
+          Nome do Estabelecimento ou Prestador *
+        </label>
+        <input
+          type="text"
+          id="cadNome"
+          required
+          placeholder="Ex: Oficina Brasil, Dr. João Silva, Padaria Central..."
+          class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <!-- 3. TIPO DE SERVIÇO E WHATSAPP -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label for="cadTipoServico" class="block text-xs font-bold text-slate-700 mb-1">
+            Tipo de Serviço / Categoria *
+          </label>
+          <input
+            type="text"
+            id="cadTipoServico"
+            list="listaCategorias"
+            required
+            placeholder="Ex: Advocacia, Mecânica..."
+            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <datalist id="listaCategorias">
+            <option value="Advocacia e Jurídico"></option>
+            <option value="Alimentação e Restaurantes"></option>
+            <option value="Mecânica e Automotivo"></option>
+            <option value="Saúde, Médicos e Dentistas"></option>
+            <option value="Construção, Reforma e Elétrica"></option>
+            <option value="Contabilidade e Consultoria"></option>
+            <option value="Tecnologia e Informática"></option>
+            <option value="Comércio e Lojas"></option>
+            <option value="Beleza e Barbearia"></option>
+            <option value="Educação e Cursos"></option>
+          </datalist>
+        </div>
+
+        <div>
+          <label for="cadWhatsapp" class="block text-xs font-bold text-slate-700 mb-1">
+            WhatsApp (com DDD) *
+          </label>
+          <input
+            type="text"
+            id="cadWhatsapp"
+            required
+            placeholder="Ex: (87) 99999-9999 ou (74) 99999-9999"
+            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      <!-- 4. QUAIS SERVIÇOS PRESTAM -->
+      <div>
+        <label for="cadServicos" class="block text-xs font-bold text-slate-700 mb-1">
+          Quais Serviços Prestam (Descrição) *
+        </label>
+        <textarea
+          id="cadServicos"
+          rows="3"
+          required
+          placeholder="Descreva os serviços prestados ou produtos vendidos..."
+          class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        ></textarea>
+      </div>
+
+      <!-- 5. ENDEREÇO COMERCIAL E LOCALIZAÇÃO -->
+      <div class="space-y-3 pt-2 border-t border-slate-200">
+        <div class="flex items-center justify-between gap-2">
+          <label for="cadEndereco" class="block text-xs font-bold text-slate-700">
+            Endereço Comercial (Opcional)
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none bg-slate-200/80 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition">
+            <input
+              type="checkbox"
+              id="cadSemEndereco"
+              onchange="toggleSemEnderecoCadastro(this.checked)"
+              class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+            />
+            <span class="text-xs font-bold text-slate-700">Sem endereço fixo</span>
+          </label>
+        </div>
+
+        <div id="blocoLocalizacaoCadastro" class="space-y-3">
+          <!-- Botão de GPS: Usar Minha Localização Atual -->
+          <button
+            type="button"
+            id="btnUsarMeuGps"
+            onclick="usarMinhaLocalizacaoAtual()"
+            class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition"
+          >
+            <i data-lucide="locate-fixed" class="w-4 h-4"></i>
+            <span>Selecionar Minha Própria Localização (GPS Atual)</span>
+          </button>
+
+          <!-- Campo de Endereço + Botão Localizar -->
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="cadEndereco"
+              placeholder="Rua, Número, Bairro, Cidade - UF (ou deixe em branco)"
+              class="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              id="btnBuscarEndCad"
+              onclick="buscarEnderecoCadastro()"
+              class="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 transition"
+            >
+              <i data-lucide="search" class="w-4 h-4"></i>
+              <span>Localizar</span>
+            </button>
+          </div>
+
+          <!-- Mini Mapa Interativo para ajustar o ponto -->
+          <div class="space-y-1.5">
+            <p class="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+              <i data-lucide="crosshair" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span>Toque no mapa abaixo se quiser marcar ou ajustar o ponto exato:</span>
+            </p>
+            <div id="mapCadastro" class="w-full h-56 rounded-2xl border border-slate-300 overflow-hidden shadow-inner"></div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 text-[11px] text-slate-500">
+            <span>Lat:</span>
+            <input type="number" step="any" id="cadLat" placeholder="-9.403" class="w-24 px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+            <span>Lng:</span>
+            <input type="number" step="any" id="cadLng" placeholder="-40.502" class="w-24 px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+          </div>
+        </div>
+
+        <p id="avisoSemEnderecoCad" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 font-medium">
+          Seu cadastro será exibido na <strong>lista lateral de prestadores</strong> com botão direto para o seu WhatsApp, sem pino fixo no mapa.
+        </p>
+      </div>
+
+      <!-- SUBMIT BUTTON -->
+      <button
+        type="submit"
+        id="btnEnviarCadastro"
+        class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-blue-600/25 transition flex items-center justify-center gap-2"
+      >
+        <i data-lucide="send" class="w-4 h-4"></i>
+        <span>Enviar Cadastro para Aprovação</span>
+      </button>
+    </form>
+  </main>
+
+  <script>
+    let mapCad = null;
+    let markerCad = null;
+    let dbCad = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initFirebaseCad();
+      initMapCad();
+      setupPhoneMask();
+    });
+
+    function initFirebaseCad() {
+      const cfg = window.FIREBASE_CONFIG;
+      if (cfg && cfg.apiKey && cfg.projectId && typeof firebase !== 'undefined') {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(cfg);
+        }
+        dbCad = firebase.firestore();
+      }
+    }
+
+    function initMapCad() {
+      mapCad = L.map('mapCadastro', {
+        center: [-9.4035, -40.5020],
+        zoom: 13
+      });
+
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+        maxZoom: 19
+      }).addTo(mapCad);
+
+      mapCad.on('click', async (e) => {
+        const { lat, lng } = e.latlng;
+        setMarkerCad(lat, lng);
+        await preencherEnderecoReversoCad(lat, lng);
+      });
+    }
+
+    function setMarkerCad(lat, lng) {
+      document.getElementById('cadLat').value = Number(lat).toFixed(6);
+      document.getElementById('cadLng').value = Number(lng).toFixed(6);
+
+      if (markerCad) {
+        mapCad.removeLayer(markerCad);
+      }
+      markerCad = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: 'custom-pin-wrapper',
+          html: `<div class="marker-pin temp-pin"><div class="marker-pin-inner"></div></div>`,
+          iconSize: [36, 36],
+          iconAnchor: [18, 36]
+        })
+      }).addTo(mapCad);
+    }
+
+    function setupPhoneMask() {
+      const input = document.getElementById('cadWhatsapp');
+      input.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.startsWith('55') && v.length > 11) v = v.slice(2);
+        if (v.length > 11) v = v.slice(0, 11);
+        if (v.length > 6) {
+          e.target.value = `(${v.slice(0, 2)}) ${v.slice(2, 7)}-${v.slice(7)}`;
+        } else if (v.length > 2) {
+          e.target.value = `(${v.slice(0, 2)}) ${v.slice(2)}`;
+        } else if (v.length > 0) {
+          e.target.value = `(${v}`;
+        }
+      });
+    }
+
+    function toggleSemEnderecoCadastro(checked) {
+      const bloco = document.getElementById('blocoLocalizacaoCadastro');
+      const aviso = document.getElementById('avisoSemEnderecoCad');
+      if (checked) {
+        bloco.classList.add('hidden');
+        aviso.classList.remove('hidden');
+        document.getElementById('cadEndereco').value = '';
+        document.getElementById('cadLat').value = '';
+        document.getElementById('cadLng').value = '';
+        if (markerCad) {
+          mapCad.removeLayer(markerCad);
+          markerCad = null;
+        }
+      } else {
+        bloco.classList.remove('hidden');
+        aviso.classList.add('hidden');
+        setTimeout(() => mapCad.invalidateSize(), 150);
+      }
+    }
+
+    function usarMinhaLocalizacaoAtual() {
+      if (!navigator.geolocation) {
+        alert('Seu navegador não suporta geolocalização.');
+        return;
+      }
+
+      const btn = document.getElementById('btnUsarMeuGps');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span>Obtendo sua localização...</span>`;
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setMarkerCad(lat, lng);
+          mapCad.flyTo([lat, lng], 17);
+          await preencherEnderecoReversoCad(lat, lng, true);
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+          lucide.createIcons();
+        },
+        (err) => {
+          console.error(err);
+          alert('Não foi possível acessar seu GPS. Permita o acesso à localização no navegador ou toque direto no mapa.');
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+          lucide.createIcons();
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    async function buscarEnderecoCadastro() {
+      const end = document.getElementById('cadEndereco').value.trim();
+      if (!end) {
+        alert('Digite o endereço primeiro para localizar no mapa.');
+        return;
+      }
+
+      const btn = document.getElementById('btnBuscarEndCad');
+      btn.disabled = true;
+      btn.textContent = 'Buscando...';
+
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(end)}`;
+        const resp = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+        const dados = await resp.json();
+        if (Array.isArray(dados) && dados.length > 0) {
+          const lat = parseFloat(dados[0].lat);
+          const lng = parseFloat(dados[0].lon);
+          setMarkerCad(lat, lng);
+          mapCad.flyTo([lat, lng], 16);
+        } else {
+          alert('Endereço não encontrado automaticamente. Toque no mapa abaixo para marcar o ponto!');
+        }
+      } catch (e) {
+        alert('Erro ao buscar endereço. Toque no mapa abaixo para marcar o ponto.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="search" class="w-4 h-4"></i><span>Localizar</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    async function preencherEnderecoReversoCad(lat, lng, sobrescrever = false) {
+      const inputEnd = document.getElementById('cadEndereco');
+      if (!sobrescrever && inputEnd.value.trim() !== '') return;
+
+      try {
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+          headers: { 'Accept-Language': 'pt-BR' }
+        });
+        const data = await resp.json();
+        if (data && data.address) {
+          const addr = data.address;
+          const rua = addr.road || addr.pedestrian || '';
+          const numero = addr.house_number || 'S/N';
+          const bairro = addr.suburb || addr.neighbourhood || addr.city_district || '';
+          const cidade = addr.city || addr.town || addr.municipality || '';
+          const estado = addr.state || '';
+          const montado = [
+            rua ? `${rua}, ${numero}` : '',
+            bairro,
+            cidade ? `${cidade} - ${estado}` : ''
+          ].filter(Boolean).join(' - ');
+          inputEnd.value = montado || data.display_name || '';
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    async function enviarSolicitacaoCadastro(e) {
+      e.preventDefault();
+
+      const btn = document.getElementById('btnEnviarCadastro');
+      btn.disabled = true;
+      btn.innerHTML = `<span>Enviando...</span>`;
+
+      const posicao = document.querySelector('input[name="posicao"]:checked').value;
+      const nome = document.getElementById('cadNome').value.trim();
+      const tipoServico = document.getElementById('cadTipoServico').value.trim();
+      const whatsapp = document.getElementById('cadWhatsapp').value.trim();
+      const servicos = document.getElementById('cadServicos').value.trim();
+      const semEnd = document.getElementById('cadSemEndereco').checked;
+      const endereco = semEnd ? '' : document.getElementById('cadEndereco').value.trim();
+      const rawLat = parseFloat(document.getElementById('cadLat').value);
+      const rawLng = parseFloat(document.getElementById('cadLng').value);
+      const temCoords = !semEnd && !isNaN(rawLat) && !isNaN(rawLng);
+
+      const novoCadastro = {
+        id: String(Date.now()),
+        nome,
+        tipoServico,
+        servicos,
+        endereco,
+        semEndereco: !temCoords && !endereco,
+        posicao,
+        whatsapp,
+        lat: temCoords ? rawLat : null,
+        lng: temCoords ? rawLng : null,
+        status: 'pendente',
+        criadoEm: new Date().toISOString()
+      };
+
+      try {
+        if (dbCad) {
+          await dbCad.collection('prestadores').doc(novoCadastro.id).set(novoCadastro);
+        }
+        document.getElementById('formCadastroPublico').classList.add('hidden');
+        document.getElementById('boxSucesso').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        console.error('Erro ao enviar:', err);
+        alert('Erro ao enviar cadastro para o Firebase. Verifique se as regras do Firestore permitem criação de cadastros.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="send" class="w-4 h-4"></i><span>Enviar Cadastro para Aprovação</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    function novoEnvio() {
+      document.getElementById('formCadastroPublico').reset();
+      toggleSemEnderecoCadastro(false);
+      document.getElementById('boxSucesso').classList.add('hidden');
+      document.getElementById('formCadastroPublico').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
