@@ -1,7 +1,7 @@
 // ==========================================
 // ESTADO GLOBAL DA APLICAÇÃO
 // ==========================================
-const STORAGE_KEY = 'guia_patriota_dados_v1';
+const STORAGE_KEY = 'guia_patriota_dados_v2';
 const ADMIN_AUTH_KEY = 'guia_patriota_admin_logged';
 const ADMIN_PASS_KEY = 'guia_patriota_admin_pass';
 const GITHUB_CONFIG_KEY = 'guia_patriota_gh_config';
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initMap() {
   map = L.map('map', {
     zoomControl: false,
-    center: [-23.558, -46.658],
+    center: [-9.4035, -40.5020],
     zoom: 13
   });
 
