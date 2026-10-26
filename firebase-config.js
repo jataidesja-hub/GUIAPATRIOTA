@@ -1,13 +1,11 @@
 // ============================================================================
-// CONFIGURAÇÃO DO FIREBASE (FIRESTORE)
-// Cole aqui os dados do seu projeto do Firebase Console
-// (Configurações do Projeto -> Geral -> Seus aplicativos -> Web)
+// CONFIGURAÇÃO DO FIREBASE (FIRESTORE) - PROJETO: radar-direita
 // ============================================================================
 window.FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyB6NEqwMNigK3_kxYrbnrfwIAe8edpvjho",
+  authDomain: "radar-direita.firebaseapp.com",
+  projectId: "radar-direita",
+  storageBucket: "radar-direita.firebasestorage.app",
+  messagingSenderId: "621046939376",
+  appId: "1:621046939376:web:d25a6d910e1607fc908c35"
 };
