@@ -4,7 +4,7 @@
 const STORAGE_KEY = 'guia_patriota_dados_v2';
 const ADMIN_AUTH_KEY = 'guia_patriota_admin_logged';
 const ADMIN_PASS_KEY = 'guia_patriota_admin_pass';
-const GITHUB_CONFIG_KEY = 'guia_patriota_gh_config';
+const FIREBASE_CONFIG_KEY = 'guia_patriota_fb_config';
 
 let prestadores = [];
 let filtroPosicao = 'todos'; // 'todos' | 'direita' | 'esquerda'
@@ -17,6 +17,11 @@ let tempPickMarker = null;
 let isPickingOnMap = false;
 let currentMode = 'public'; // 'public' | 'admin'
 let activeProviderId = null;
+
+// Firebase Firestore state
+let db = null;
+let unsubscribeFirestore = null;
+let isFirebaseConnected = false;
 
 // ==========================================
 // INICIALIZAÇÃO
@@ -85,34 +90,133 @@ function criarIconePino(posicao) {
 }
 
 // ==========================================
-// CARREGAMENTO E PERSISTÊNCIA DE DADOS
+// CARREGAMENTO E PERSISTÊNCIA DE DADOS (FIREBASE + LOCAL)
 // ==========================================
+function obterConfigFirebaseAtiva() {
+  const fromFile = window.FIREBASE_CONFIG || {};
+  if (fromFile.apiKey && fromFile.projectId) {
+    return fromFile;
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem(FIREBASE_CONFIG_KEY) || '{}');
+    if (saved.apiKey && saved.projectId) {
+      return saved;
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+  return null;
+}
+
+function atualizarIndicadorFirebase(conectado) {
+  isFirebaseConnected = conectado;
+  const dot = document.getElementById('firebaseStatusDot');
+  const txt = document.getElementById('firebaseStatusText');
+  if (!dot || !txt) return;
+
+  if (conectado) {
+    dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+    txt.textContent = 'Firebase Online';
+  } else {
+    dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+    txt.textContent = 'Configurar Firebase';
+  }
+}
+
+async function inicializarFirebase() {
+  const config = obterConfigFirebaseAtiva();
+  if (!config || typeof firebase === 'undefined') {
+    atualizarIndicadorFirebase(false);
+    return false;
+  }
+
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    db = firebase.firestore();
+
+    if (unsubscribeFirestore) {
+      unsubscribeFirestore();
+    }
+
+    return new Promise((resolve) => {
+      let resolvedFirst = false;
+      unsubscribeFirestore = db.collection('prestadores').onSnapshot(
+        async (snapshot) => {
+          const docs = [];
+          snapshot.forEach((doc) => {
+            docs.push({ id: doc.id, ...doc.data() });
+          });
+
+          // Ordenar mais recentes primeiro
+          docs.sort((a, b) => String(b.criadoEm || '').localeCompare(String(a.criadoEm || '')));
+
+          if (docs.length > 0) {
+            prestadores = docs;
+            salvarDadosLocal();
+          } else if (!resolvedFirst && prestadores.length > 0) {
+            // Se o banco no Firebase estiver vazio na 1ª vez, sobe os dados iniciais automaticamente
+            for (const item of prestadores) {
+              await db.collection('prestadores').doc(String(item.id)).set(item);
+            }
+          }
+
+          atualizarIndicadorFirebase(true);
+          renderAll();
+          if (!resolvedFirst) {
+            resolvedFirst = true;
+            resolve(true);
+          }
+        },
+        (err) => {
+          console.error('Erro no listener do Firestore:', err);
+          atualizarIndicadorFirebase(false);
+          if (!resolvedFirst) {
+            resolvedFirst = true;
+            resolve(false);
+          }
+        }
+      );
+    });
+  } catch (err) {
+    console.error('Erro ao inicializar Firebase:', err);
+    atualizarIndicadorFirebase(false);
+    return false;
+  }
+}
+
 async function carregarDadosIniciais() {
   const salvosLocal = localStorage.getItem(STORAGE_KEY);
 
   if (salvosLocal) {
     try {
-      prestadores = JSON.parse(salvosLocal);
-      if (Array.isArray(prestadores) && prestadores.length > 0) {
-        return;
+      const parsed = JSON.parse(salvosLocal);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        prestadores = parsed;
       }
     } catch (err) {
       console.error('Erro ao ler localStorage:', err);
     }
   }
 
-  try {
-    const resp = await fetch(`./dados.json?t=${Date.now()}`);
-    if (resp.ok) {
-      const dadosJson = await resp.json();
-      if (Array.isArray(dadosJson)) {
-        prestadores = dadosJson;
-        salvarDadosLocal();
+  if (prestadores.length === 0) {
+    try {
+      const resp = await fetch(`./dados.json?t=${Date.now()}`);
+      if (resp.ok) {
+        const dadosJson = await resp.json();
+        if (Array.isArray(dadosJson)) {
+          prestadores = dadosJson;
+          salvarDadosLocal();
+        }
       }
+    } catch (err) {
+      console.warn('Usando lista inicial padrão:', err);
     }
-  } catch (err) {
-    console.warn('Usando lista inicial padrão:', err);
   }
+
+  // Conecta ao Firebase se configurado
+  await inicializarFirebase();
 }
 
 function salvarDadosLocal() {
@@ -734,10 +838,15 @@ async function saveProvider(e) {
   renderAll();
   focarNoMapa(novoItem.id);
 
-  // Se o token do GitHub estiver configurado, sincroniza automaticamente
-  const ghConfig = obterConfigGitHub();
-  if (ghConfig && ghConfig.token) {
-    await syncToGitHubNow(true);
+  // Salva diretamente no Firebase Firestore se conectado
+  if (db && isFirebaseConnected) {
+    try {
+      await db.collection('prestadores').doc(String(novoItem.id)).set(novoItem);
+      mostrarToast('Salvo em tempo real no Firebase!');
+    } catch (err) {
+      console.error('Erro ao salvar no Firebase:', err);
+      mostrarToast('Salvo localmente (erro de permissão no Firebase).');
+    }
   }
 }
 
@@ -783,9 +892,12 @@ async function excluirPrestador(id) {
   renderAll();
   mostrarToast('Cadastro removido com sucesso.');
 
-  const ghConfig = obterConfigGitHub();
-  if (ghConfig && ghConfig.token) {
-    await syncToGitHubNow(true);
+  if (db && isFirebaseConnected) {
+    try {
+      await db.collection('prestadores').doc(String(id)).delete();
+    } catch (err) {
+      console.error('Erro ao excluir no Firebase:', err);
+    }
   }
 }
 
@@ -888,18 +1000,12 @@ function importarDadosJSON(event) {
   reader.readAsText(file);
 }
 
-function obterConfigGitHub() {
-  try {
-    return JSON.parse(localStorage.getItem(GITHUB_CONFIG_KEY) || '{}');
-  } catch {
-    return {};
-  }
-}
-
 function openCloudConfigModal() {
-  const cfg = obterConfigGitHub();
-  document.getElementById('inputGithubRepo').value = cfg.repo || 'jataidesja-hub/GUIAPATRIOTA';
-  document.getElementById('inputGithubToken').value = cfg.token || '';
+  const cfg = obterConfigFirebaseAtiva() || {};
+  document.getElementById('fbApiKey').value = cfg.apiKey || '';
+  document.getElementById('fbProjectId').value = cfg.projectId || '';
+  document.getElementById('fbAuthDomain').value = cfg.authDomain || '';
+  document.getElementById('fbAppId').value = cfg.appId || '';
   document.getElementById('inputNewAdminPass').value = localStorage.getItem(ADMIN_PASS_KEY) || 'admin123';
   document.getElementById('modalCloudConfig').classList.remove('hidden');
 }
@@ -908,74 +1014,46 @@ function closeCloudConfigModal() {
   document.getElementById('modalCloudConfig').classList.add('hidden');
 }
 
-function saveCloudConfig(e) {
+async function saveCloudConfig(e) {
   e.preventDefault();
-  const repo = document.getElementById('inputGithubRepo').value.trim();
-  const token = document.getElementById('inputGithubToken').value.trim();
+  const apiKey = document.getElementById('fbApiKey').value.trim();
+  const projectId = document.getElementById('fbProjectId').value.trim();
+  const authDomain = document.getElementById('fbAuthDomain').value.trim() || `${projectId}.firebaseapp.com`;
+  const appId = document.getElementById('fbAppId').value.trim();
   const newPass = document.getElementById('inputNewAdminPass').value.trim();
 
-  localStorage.setItem(GITHUB_CONFIG_KEY, JSON.stringify({ repo, token }));
+  if (apiKey && projectId) {
+    localStorage.setItem(
+      FIREBASE_CONFIG_KEY,
+      JSON.stringify({ apiKey, projectId, authDomain, appId })
+    );
+  }
   if (newPass) {
     localStorage.setItem(ADMIN_PASS_KEY, newPass);
   }
+
   closeCloudConfigModal();
-  mostrarToast('Configurações salvas!');
+  const ok = await inicializarFirebase();
+  if (ok) {
+    mostrarToast('Firebase conectado em tempo real!');
+  } else {
+    mostrarToast('Configurações salvas!');
+  }
 }
 
-async function syncToGitHubNow(silencioso = false) {
-  const repo = (document.getElementById('inputGithubRepo')?.value || obterConfigGitHub().repo || 'jataidesja-hub/GUIAPATRIOTA').trim();
-  const token = (document.getElementById('inputGithubToken')?.value || obterConfigGitHub().token || '').trim();
-
-  if (!token) {
-    if (!silencioso) {
-      mostrarToast('Informe seu GitHub Personal Access Token primeiro.');
-    }
+async function enviarLocaisParaFirebase() {
+  if (!db || !isFirebaseConnected) {
+    mostrarToast('Conecte o Firebase primeiro preenchendo apiKey e projectId.');
     return;
   }
-
   try {
-    if (!silencioso) mostrarToast('Publicando dados no GitHub / Vercel...');
-    const apiUrl = `https://api.github.com/repos/${repo}/contents/dados.json`;
-
-    // 1. Buscar SHA atual do arquivo dados.json
-    let sha = undefined;
-    const getResp = await fetch(apiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json'
-      }
-    });
-    if (getResp.ok) {
-      const fileData = await getResp.json();
-      sha = fileData.sha;
+    for (const item of prestadores) {
+      await db.collection('prestadores').doc(String(item.id)).set(item);
     }
-
-    // 2. Codificar JSON em Base64 UTF-8
-    const conteudoJson = JSON.stringify(prestadores, null, 2);
-    const base64Content = btoa(unescape(encodeURIComponent(conteudoJson)));
-
-    const putResp = await fetch(apiUrl, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: 'Atualização de prestadores via Painel ADM',
-        content: base64Content,
-        sha
-      })
-    });
-
-    if (putResp.ok) {
-      mostrarToast('Publicado no GitHub! A Vercel atualizará em instantes.');
-    } else {
-      mostrarToast('Erro ao publicar no GitHub. Verifique o Token.');
-    }
+    mostrarToast(`${prestadores.length} cadastros sincronizados no Firebase!`);
   } catch (err) {
     console.error(err);
-    mostrarToast('Falha de conexão ao sincronizar com GitHub.');
+    mostrarToast('Erro ao sincronizar no Firebase. Verifique as regras do Firestore.');
   }
 }
 

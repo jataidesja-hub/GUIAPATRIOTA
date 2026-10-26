@@ -20,6 +20,11 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <!-- Firebase SDK (App + Firestore) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="./firebase-config.js"></script>
+
   <!-- Custom Styles -->
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -209,9 +214,10 @@
           </div>
         </div>
         <div class="flex items-center gap-1.5">
-          <button onclick="openCloudConfigModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1" title="Configurar Banco de Dados / GitHub">
-            <i data-lucide="cloud" class="w-4 h-4 text-sky-400"></i>
-            <span class="hidden sm:inline">Nuvem</span>
+          <button onclick="openCloudConfigModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1.5" title="Configurar Firebase">
+            <span id="firebaseStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <i data-lucide="database" class="w-4 h-4 text-amber-400"></i>
+            <span id="firebaseStatusText" class="hidden sm:inline">Firebase</span>
           </button>
           <button onclick="switchView('public')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300" title="Fechar Painel ADM">
             <i data-lucide="x" class="w-4 h-4"></i>
@@ -469,17 +475,17 @@
     </div>
   </div>
 
-  <!-- MODAL: CLOUD / GITHUB SYNC CONFIG -->
+  <!-- MODAL: FIREBASE CONFIG -->
   <div id="modalCloudConfig" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 select-text">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2.5">
-          <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
-            <i data-lucide="cloud-cog" class="w-5 h-5"></i>
+          <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+            <i data-lucide="database" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="font-bold text-slate-900 text-base">Publicação Direta no GitHub / Vercel</h3>
-            <p class="text-xs text-slate-500">Salve alterações direto no repositório online</p>
+            <h3 class="font-bold text-slate-900 text-base">Conexão Firebase (Firestore)</h3>
+            <p class="text-xs text-slate-500">Banco de dados em tempo real</p>
           </div>
         </div>
         <button onclick="closeCloudConfigModal()" class="text-slate-400 hover:text-slate-600">
@@ -487,45 +493,44 @@
         </button>
       </div>
 
-      <div class="text-xs text-slate-600 space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-        <p>Para que qualquer cadastro feito pelo ADM atualize automaticamente o site público na Vercel para todos os visitantes, informe um <strong>Token do GitHub (Personal Access Token)</strong> com permissão <code class="bg-slate-200 px-1 rounded">repo</code>:</p>
+      <div class="text-xs text-slate-600 space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+        <p>Cole abaixo as credenciais do seu projeto <strong>Firebase</strong> (ou envie no chat para deixarmos fixo no arquivo <code class="bg-slate-200 px-1 rounded">firebase-config.js</code>):</p>
       </div>
 
-      <form onsubmit="saveCloudConfig(event)" class="space-y-3">
+      <form onsubmit="saveCloudConfig(event)" class="space-y-2.5">
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Repositório GitHub</label>
-          <input
-            type="text"
-            id="inputGithubRepo"
-            value="jataidesja-hub/GUIAPATRIOTA"
-            class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-mono"
-          />
+          <label class="block text-xs font-bold text-slate-700 mb-1">apiKey *</label>
+          <input type="text" id="fbApiKey" placeholder="AIzaSy..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">projectId *</label>
+          <input type="text" id="fbProjectId" placeholder="meu-projeto-id" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">authDomain</label>
+            <input type="text" id="fbAuthDomain" placeholder="projeto.firebaseapp.com" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">appId</label>
+            <input type="text" id="fbAppId" placeholder="1:123456:web:abcdef" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono" />
+          </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">GitHub Personal Access Token (ghp_...)</label>
-          <input
-            type="password"
-            id="inputGithubToken"
-            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-            class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-mono"
-          />
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Alterar Senha do ADM</label>
+        <div class="pt-1 border-t border-slate-200">
+          <label class="block text-xs font-bold text-slate-700 mb-1">Senha do Painel ADM</label>
           <input
             type="text"
             id="inputNewAdminPass"
             placeholder="admin123"
-            class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs"
+            class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs"
           />
         </div>
 
         <div class="flex items-center justify-between pt-2">
-          <button type="button" onclick="syncToGitHubNow()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white flex items-center gap-1.5">
+          <button type="button" onclick="enviarLocaisParaFirebase()" class="px-3 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5">
             <i data-lucide="upload-cloud" class="w-4 h-4"></i>
-            <span>Publicar Dados Agora</span>
+            <span>Sincronizar Atuais</span>
           </button>
 
           <div class="flex gap-2">
@@ -533,7 +538,7 @@
               Fechar
             </button>
             <button type="submit" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white">
-              Salvar Config
+              Salvar e Conectar
             </button>
           </div>
         </div>
