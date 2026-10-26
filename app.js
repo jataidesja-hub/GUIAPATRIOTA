@@ -120,6 +120,8 @@ function atualizarIndicadorFirebase(conectado) {
   }
 }
 
+const IDS_EXEMPLO_ANTIGOS = new Set(['1', '2', '3', '4', '5']);
+
 async function inicializarFirebase() {
   const config = obterConfigFirebaseAtiva();
   if (!config || typeof firebase === 'undefined') {
@@ -142,22 +144,28 @@ async function inicializarFirebase() {
       unsubscribeFirestore = db.collection('prestadores').onSnapshot(
         async (snapshot) => {
           const docs = [];
+          const exemplosParaApagar = [];
+
           snapshot.forEach((doc) => {
-            docs.push({ id: doc.id, ...doc.data() });
+            if (IDS_EXEMPLO_ANTIGOS.has(String(doc.id))) {
+              exemplosParaApagar.push(String(doc.id));
+            } else {
+              docs.push({ id: doc.id, ...doc.data() });
+            }
           });
+
+          // Remove definitivamente do Firebase apenas os 5 itens de exemplo antigos caso ainda existam
+          if (exemplosParaApagar.length > 0) {
+            exemplosParaApagar.forEach((exId) => {
+              db.collection('prestadores').doc(exId).delete().catch(() => {});
+            });
+          }
 
           // Ordenar mais recentes primeiro
           docs.sort((a, b) => String(b.criadoEm || '').localeCompare(String(a.criadoEm || '')));
 
-          if (docs.length > 0) {
-            prestadores = docs;
-            salvarDadosLocal();
-          } else if (!resolvedFirst && prestadores.length > 0) {
-            // Se o banco no Firebase estiver vazio na 1ª vez, sobe os dados iniciais automaticamente
-            for (const item of prestadores) {
-              await db.collection('prestadores').doc(String(item.id)).set(item);
-            }
-          }
+          prestadores = docs;
+          salvarDadosLocal();
 
           atualizarIndicadorFirebase(true);
           renderAll();
@@ -184,35 +192,21 @@ async function inicializarFirebase() {
 }
 
 async function carregarDadosIniciais() {
+  // Limpa do cache local os 5 exemplos antigos, mantendo apenas cadastros reais
   const salvosLocal = localStorage.getItem(STORAGE_KEY);
-
   if (salvosLocal) {
     try {
       const parsed = JSON.parse(salvosLocal);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        prestadores = parsed;
+      if (Array.isArray(parsed)) {
+        prestadores = parsed.filter((item) => !IDS_EXEMPLO_ANTIGOS.has(String(item.id)));
+        salvarDadosLocal();
       }
     } catch (err) {
       console.error('Erro ao ler localStorage:', err);
     }
   }
 
-  if (prestadores.length === 0) {
-    try {
-      const resp = await fetch(`./dados.json?t=${Date.now()}`);
-      if (resp.ok) {
-        const dadosJson = await resp.json();
-        if (Array.isArray(dadosJson)) {
-          prestadores = dadosJson;
-          salvarDadosLocal();
-        }
-      }
-    } catch (err) {
-      console.warn('Usando lista inicial padrão:', err);
-    }
-  }
-
-  // Conecta ao Firebase se configurado
+  // Conecta ao Firebase (fonte oficial dos dados)
   await inicializarFirebase();
 }
 
