@@ -2,8 +2,6 @@
 // ESTADO GLOBAL DA APLICAÇÃO
 // ==========================================
 const STORAGE_KEY = 'guia_patriota_dados_v2';
-const ADMIN_AUTH_KEY = 'guia_patriota_admin_logged';
-const ADMIN_PASS_KEY = 'guia_patriota_admin_pass';
 const FIREBASE_CONFIG_KEY = 'guia_patriota_fb_config';
 
 let prestadores = [];
@@ -602,17 +600,20 @@ function fitAllMarkers() {
 }
 
 // ==========================================
-// PAINEL ADMINISTRATIVO (TELA ADM)
+// PAINEL ADMINISTRATIVO (TELA ADM - FIREBASE AUTH)
 // ==========================================
+function isAdminAuthenticated() {
+  return typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser !== null;
+}
+
 function openAdminAccess() {
-  const isLogged = sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true';
-  if (isLogged) {
+  if (isAdminAuthenticated()) {
     switchView('admin');
   } else {
     document.getElementById('modalAdminLogin').classList.remove('hidden');
     document.getElementById('inputAdminPassword').value = '';
     document.getElementById('loginErrorMsg').classList.add('hidden');
-    setTimeout(() => document.getElementById('inputAdminPassword').focus(), 100);
+    setTimeout(() => document.getElementById('inputAdminEmail').focus(), 100);
   }
 }
 
@@ -620,22 +621,49 @@ function closeAdminLoginModal() {
   document.getElementById('modalAdminLogin').classList.add('hidden');
 }
 
-function handleAdminLogin(e) {
+async function handleAdminLogin(e) {
   e.preventDefault();
+  const email = document.getElementById('inputAdminEmail').value.trim();
   const passInput = document.getElementById('inputAdminPassword').value;
-  const savedPass = localStorage.getItem(ADMIN_PASS_KEY) || 'admin123';
+  const errorEl = document.getElementById('loginErrorMsg');
+  const btnSubmit = document.getElementById('btnLoginSubmit');
 
-  if (passInput === savedPass) {
-    sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
+  errorEl.classList.add('hidden');
+  btnSubmit.disabled = true;
+  btnSubmit.textContent = 'Autenticando...';
+
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, passInput);
     closeAdminLoginModal();
     switchView('admin');
-    mostrarToast('Bem-vindo ao Painel ADM!');
-  } else {
-    document.getElementById('loginErrorMsg').classList.remove('hidden');
+    mostrarToast('Autenticado com sucesso no Painel ADM!');
+  } catch (err) {
+    console.error('Erro de autenticação:', err);
+    errorEl.textContent = 'E-mail ou senha incorretos no Firebase Authentication.';
+    errorEl.classList.remove('hidden');
+  } finally {
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = 'Entrar no Painel';
   }
 }
 
+async function handleAdminLogout() {
+  try {
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      await firebase.auth().signOut();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  switchView('public');
+  mostrarToast('Sessão encerrada.');
+}
+
 function switchView(mode) {
+  if (mode === 'admin' && !isAdminAuthenticated()) {
+    openAdminAccess();
+    return;
+  }
   currentMode = mode;
   const adminPanel = document.getElementById('adminPanel');
   const badgeMode = document.getElementById('badgeModeIndicator');
@@ -791,6 +819,11 @@ function removerPinoTemporario() {
 // ==========================================
 async function saveProvider(e) {
   e.preventDefault();
+  if (!isAdminAuthenticated()) {
+    mostrarToast('Acesso negado: faça login no Firebase Auth primeiro.');
+    openAdminAccess();
+    return;
+  }
 
   const id = document.getElementById('providerId').value;
   const posicao = document.querySelector('input[name="posicao"]:checked').value;
@@ -879,6 +912,11 @@ function editarPrestador(id) {
 }
 
 async function excluirPrestador(id) {
+  if (!isAdminAuthenticated()) {
+    mostrarToast('Acesso negado: faça login no Firebase Auth primeiro.');
+    openAdminAccess();
+    return;
+  }
   const item = prestadores.find((p) => p.id === id);
   if (!item) return;
 
@@ -1005,7 +1043,6 @@ function openCloudConfigModal() {
   document.getElementById('fbProjectId').value = cfg.projectId || '';
   document.getElementById('fbAuthDomain').value = cfg.authDomain || '';
   document.getElementById('fbAppId').value = cfg.appId || '';
-  document.getElementById('inputNewAdminPass').value = localStorage.getItem(ADMIN_PASS_KEY) || 'admin123';
   document.getElementById('modalCloudConfig').classList.remove('hidden');
 }
 
@@ -1019,16 +1056,12 @@ async function saveCloudConfig(e) {
   const projectId = document.getElementById('fbProjectId').value.trim();
   const authDomain = document.getElementById('fbAuthDomain').value.trim() || `${projectId}.firebaseapp.com`;
   const appId = document.getElementById('fbAppId').value.trim();
-  const newPass = document.getElementById('inputNewAdminPass').value.trim();
 
   if (apiKey && projectId) {
     localStorage.setItem(
       FIREBASE_CONFIG_KEY,
       JSON.stringify({ apiKey, projectId, authDomain, appId })
     );
-  }
-  if (newPass) {
-    localStorage.setItem(ADMIN_PASS_KEY, newPass);
   }
 
   closeCloudConfigModal();

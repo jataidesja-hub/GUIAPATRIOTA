@@ -12,7 +12,7 @@ Sistema web de mapeamento de endereços comerciais e prestadores de serviços co
   - Busca por texto e filtro por categoria de serviço.
   - Botão **WhatsApp** direto (`wa.me`) e botão **Ver no Mapa**.
 - **Tela de ADM**:
-  - Acesso pelo botão **Área ADM** (senha padrão inicial: `admin123`).
+  - Acesso autenticado via **Firebase Authentication (E-mail e Senha)** — nenhuma senha exposta no frontend.
   - Cadastro, edição e exclusão de locais (atualiza Mapa e Menu Lateral simultaneamente).
   - Localização automática por endereço ou **clique direto no mapa**.
   - Sincronização direta com o GitHub/Vercel via Token ou exportação/importação de `dados.json`.
