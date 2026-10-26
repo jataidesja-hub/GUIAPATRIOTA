@@ -263,14 +263,26 @@
 
           <!-- Lista de Cadastros Pendentes de Aprovação -->
           <div class="pt-2 border-t border-amber-200/80 space-y-2">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <span class="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">
                 <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-700"></i>
                 Aguardando sua Aprovação
               </span>
-              <span id="adminPendentesCount" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-200 text-amber-950">
-                0 pendentes
-              </span>
+              <div class="flex items-center gap-1.5">
+                <span id="adminPendentesCount" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-200 text-amber-950">
+                  0 pendentes
+                </span>
+                <button
+                  type="button"
+                  id="btnAtualizarPendentes"
+                  onclick="atualizarDadosFirebaseManualmente()"
+                  class="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[11px] font-bold flex items-center gap-1 shadow-sm transition"
+                  title="Buscar novas solicitações de aprovação agora"
+                >
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-amber-700"></i>
+                  <span>Atualizar</span>
+                </button>
+              </div>
             </div>
 
             <div id="adminPendentesList" class="space-y-2">

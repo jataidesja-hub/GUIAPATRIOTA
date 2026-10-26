@@ -36,7 +36,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderAll();
   fitAllMarkers();
 
-  // Verificar se URL possui #admin
+  // Verificar se URL possui #admin (aguarda estado do Firebase Auth restaurar sessão)
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().onAuthStateChanged((user) => {
+      if (window.location.hash === '#admin' && user) {
+        switchView('admin');
+      }
+    });
+  }
   if (window.location.hash === '#admin') {
     openAdminAccess();
   }
@@ -128,6 +135,51 @@ function atualizarIndicadorFirebase(conectado) {
 }
 
 const IDS_EXEMPLO_ANTIGOS = new Set(['1', '2', '3', '4', '5']);
+
+async function atualizarDadosFirebaseManualmente() {
+  const btn = document.getElementById('btnAtualizarPendentes');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin text-amber-700"></i><span>Atualizando...</span>`;
+    lucide.createIcons();
+  }
+
+  try {
+    if (!db) {
+      await inicializarFirebase();
+    }
+    if (db) {
+      const snapshot = await db.collection('prestadores').get();
+      const docs = [];
+      snapshot.forEach((doc) => {
+        if (!IDS_EXEMPLO_ANTIGOS.has(String(doc.id))) {
+          docs.push({ id: doc.id, ...doc.data() });
+        }
+      });
+      docs.sort((a, b) => String(b.criadoEm || '').localeCompare(String(a.criadoEm || '')));
+      prestadores = docs;
+      salvarDadosLocal();
+      renderAll();
+
+      const pendentesCount = prestadores.filter((p) => p.status === 'pendente').length;
+      mostrarToast(
+        pendentesCount > 0
+          ? `Lista atualizada! Você tem ${pendentesCount} ${pendentesCount === 1 ? 'cadastro pendente' : 'cadastros pendentes'}.`
+          : 'Lista atualizada! Nenhuma nova solicitação pendente.'
+      );
+    }
+  } catch (err) {
+    console.error('Erro ao atualizar manualmente:', err);
+    mostrarToast('Erro ao consultar o Firebase.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      lucide.createIcons();
+    }
+  }
+}
 
 async function inicializarFirebase() {
   const config = obterConfigFirebaseAtiva();
