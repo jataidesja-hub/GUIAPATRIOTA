@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMap();
   setupEventListeners();
   await carregarDadosIniciais();
+  await registrarAcessoVisita();
   renderAll();
   fitAllMarkers();
 
@@ -466,6 +467,7 @@ function renderMarkers(lista) {
               href="${linkZap}"
               target="_blank"
               rel="noopener noreferrer"
+              onclick="registrarCliqueWhatsapp()"
               class="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 !text-white font-bold text-xs rounded-xl text-center flex items-center justify-center gap-1.5 shadow-sm no-underline transition"
             >
               <span>WhatsApp</span>
@@ -578,6 +580,7 @@ function renderSidebarList(lista) {
               href="${linkZap}"
               target="_blank"
               rel="noopener noreferrer"
+              onclick="registrarCliqueWhatsapp()"
               class="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 transition"
               title="Conversar no WhatsApp: ${escapeHtml(foneFormatado)}"
             >
@@ -1695,6 +1698,302 @@ function preencherFormularioComPontoCinza(index) {
   map.closePopup();
   document.getElementById('adminForm').scrollIntoView({ behavior: 'smooth' });
   mostrarToast('Dados preenchidos no formulário ADM! Escolha a cor e salve.');
+}
+
+// ==========================================
+// DASHBOARD & ESTATÍSTICAS DE ACESSOS E CADASTROS (ADM)
+// ==========================================
+const ANALYTICS_LOCAL_KEY = 'guia_patriota_analytics_v1';
+let dadosEstatisticas = {
+  totalGeral: 0,
+  cliquesWhatsapp: 0,
+  porDia: {},
+  porMes: {}
+};
+
+function obterChaveDiaHoje(dateObj = new Date()) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function obterChaveMesAtual(dateObj = new Date()) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function carregarAnalyticsLocal() {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(ANALYTICS_LOCAL_KEY) || '{}');
+    if (salvo && typeof salvo === 'object') {
+      dadosEstatisticas = {
+        totalGeral: Number(salvo.totalGeral || 0),
+        cliquesWhatsapp: Number(salvo.cliquesWhatsapp || 0),
+        porDia: salvo.porDia || {},
+        porMes: salvo.porMes || {}
+      };
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+function salvarAnalyticsLocal() {
+  localStorage.setItem(ANALYTICS_LOCAL_KEY, JSON.stringify(dadosEstatisticas));
+}
+
+async function registrarAcessoVisita() {
+  carregarAnalyticsLocal();
+
+  const hoje = obterChaveDiaHoje();
+  const mes = obterChaveMesAtual();
+  const jaContouSessao = sessionStorage.getItem('guia_sessao_contabilizada') === 'true';
+
+  if (db) {
+    try {
+      const docRef = db.collection('estatisticas').doc('acessos');
+      const snap = await docRef.get();
+      if (snap.exists) {
+        const remoto = snap.data() || {};
+        dadosEstatisticas = {
+          totalGeral: Number(remoto.totalGeral || 0),
+          cliquesWhatsapp: Number(remoto.cliquesWhatsapp || 0),
+          porDia: remoto.porDia || {},
+          porMes: remoto.porMes || {}
+        };
+      }
+
+      if (!jaContouSessao) {
+        dadosEstatisticas.totalGeral += 1;
+        dadosEstatisticas.porDia[hoje] = Number(dadosEstatisticas.porDia[hoje] || 0) + 1;
+        dadosEstatisticas.porMes[mes] = Number(dadosEstatisticas.porMes[mes] || 0) + 1;
+        sessionStorage.setItem('guia_sessao_contabilizada', 'true');
+        await docRef.set(dadosEstatisticas, { merge: true });
+      }
+      salvarAnalyticsLocal();
+      return;
+    } catch (err) {
+      console.warn('Analytics local fallback:', err);
+    }
+  }
+
+  if (!jaContouSessao) {
+    dadosEstatisticas.totalGeral += 1;
+    dadosEstatisticas.porDia[hoje] = Number(dadosEstatisticas.porDia[hoje] || 0) + 1;
+    dadosEstatisticas.porMes[mes] = Number(dadosEstatisticas.porMes[mes] || 0) + 1;
+    sessionStorage.setItem('guia_sessao_contabilizada', 'true');
+    salvarAnalyticsLocal();
+  }
+}
+
+async function registrarCliqueWhatsapp() {
+  carregarAnalyticsLocal();
+  dadosEstatisticas.cliquesWhatsapp = Number(dadosEstatisticas.cliquesWhatsapp || 0) + 1;
+  salvarAnalyticsLocal();
+
+  if (db) {
+    try {
+      await db.collection('estatisticas').doc('acessos').set(
+        { cliquesWhatsapp: dadosEstatisticas.cliquesWhatsapp },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+}
+
+async function openAdminDashboard() {
+  if (!isAdminAuthenticated()) {
+    openAdminAccess();
+    return;
+  }
+
+  document.getElementById('modalAdminDashboard').classList.remove('hidden');
+
+  if (db) {
+    try {
+      const snap = await db.collection('estatisticas').doc('acessos').get();
+      if (snap.exists) {
+        const remoto = snap.data() || {};
+        dadosEstatisticas = {
+          totalGeral: Number(remoto.totalGeral || 0),
+          cliquesWhatsapp: Number(remoto.cliquesWhatsapp || 0),
+          porDia: remoto.porDia || {},
+          porMes: remoto.porMes || {}
+        };
+        salvarAnalyticsLocal();
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  renderDashboardData();
+  lucide.createIcons();
+}
+
+function closeAdminDashboard() {
+  document.getElementById('modalAdminDashboard').classList.add('hidden');
+}
+
+function formatarNomeMes(chaveMes) {
+  const [ano, mes] = String(chaveMes).split('-');
+  const nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const idx = parseInt(mes, 10) - 1;
+  return `${nomes[idx] || mes}/${ano}`;
+}
+
+function renderDashboardData() {
+  const hoje = obterChaveDiaHoje();
+  const mesAtual = obterChaveMesAtual();
+
+  // 1. Calcular acessos últimos 7 dias
+  let soma7Dias = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const k = obterChaveDiaHoje(d);
+    soma7Dias += Number(dadosEstatisticas.porDia[k] || 0);
+  }
+
+  const acessosHoje = Number(dadosEstatisticas.porDia[hoje] || 0);
+  const acessosMes = Number(dadosEstatisticas.porMes[mesAtual] || 0);
+  const acessosTotal = Number(dadosEstatisticas.totalGeral || 0);
+  const cliquesZap = Number(dadosEstatisticas.cliquesWhatsapp || 0);
+
+  document.getElementById('dashAcessosHoje').textContent = acessosHoje;
+  document.getElementById('dashLabelHoje').textContent = `Dia ${hoje.split('-').reverse().slice(0, 2).join('/')}`;
+  document.getElementById('dashAcessos7Dias').textContent = soma7Dias;
+  document.getElementById('dashAcessosMes').textContent = acessosMes;
+  document.getElementById('dashLabelMes').textContent = formatarNomeMes(mesAtual);
+  document.getElementById('dashAcessosTotal').textContent = acessosTotal;
+  document.getElementById('dashCliquesZap').textContent = cliquesZap;
+
+  // 2. Estatísticas de Cadastros
+  const aprovados = obterPrestadoresAprovados();
+  const pendentes = prestadores.filter((p) => p.status === 'pendente');
+  const totalCad = aprovados.length;
+  const cadDireita = aprovados.filter((p) => p.posicao === 'direita').length;
+  const cadEsquerda = aprovados.filter((p) => p.posicao === 'esquerda').length;
+  const pctDir = totalCad > 0 ? Math.round((cadDireita / totalCad) * 100) : 0;
+  const pctEsq = totalCad > 0 ? Math.round((cadEsquerda / totalCad) * 100) : 0;
+
+  const comMapa = aprovados.filter((p) => !p.semEndereco && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng))).length;
+  const semMapa = totalCad - comMapa;
+
+  document.getElementById('dashCadTotal').textContent = totalCad;
+  document.getElementById('dashCadDireita').textContent = cadDireita;
+  document.getElementById('dashPctDireita').textContent = `${pctDir}% dos aprovados`;
+  document.getElementById('dashCadEsquerda').textContent = cadEsquerda;
+  document.getElementById('dashPctEsquerda').textContent = `${pctEsq}% dos aprovados`;
+  document.getElementById('dashCadPendentes').textContent = pendentes.length;
+  document.getElementById('dashCadMapaVsLista').textContent = `${comMapa} mapa / ${semMapa} lista`;
+
+  // 3. Gráfico de Barras dos Últimos 14 Dias
+  const dias14 = [];
+  let maxDia = 1;
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const chave = obterChaveDiaHoje(d);
+    const val = Number(dadosEstatisticas.porDia[chave] || 0);
+    if (val > maxDia) maxDia = val;
+    const labelCurta = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    dias14.push({ chave, labelCurta, val });
+  }
+
+  const chartEl = document.getElementById('dashChartDiario');
+  chartEl.innerHTML = dias14
+    .map((item) => {
+      const alturaPct = Math.max(8, Math.round((item.val / maxDia) * 100));
+      const isHoje = item.chave === hoje;
+      const barColor = isHoje ? 'bg-indigo-600' : 'bg-indigo-400/80 hover:bg-indigo-500';
+      return `
+        <div class="flex-1 min-w-[34px] flex flex-col items-center justify-end h-full group">
+          <span class="text-[10px] font-bold text-slate-700 mb-1">${item.val}</span>
+          <div class="w-full max-w-[28px] rounded-t-lg transition-all ${barColor}" style="height: ${alturaPct}%"></div>
+          <span class="text-[10px] font-semibold ${isHoje ? 'text-indigo-700 font-extrabold' : 'text-slate-400'} mt-1.5">${item.labelCurta}</span>
+        </div>
+      `;
+    })
+    .join('');
+
+  // 4. Histórico de Acessos por Mês
+  const mesesChaves = Object.keys(dadosEstatisticas.porMes || {}).sort().reverse();
+  if (!mesesChaves.includes(mesAtual)) mesesChaves.unshift(mesAtual);
+  const listaMensalEl = document.getElementById('dashListaMensal');
+  listaMensalEl.innerHTML = mesesChaves
+    .map((mKey) => {
+      const qtd = Number(dadosEstatisticas.porMes[mKey] || 0);
+      return `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+          <span class="font-bold text-slate-700">${formatarNomeMes(mKey)}</span>
+          <span class="font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">${qtd} acessos</span>
+        </div>
+      `;
+    })
+    .join('');
+
+  // 5. Cadastros por Categoria / Tipo de Serviço
+  const mapaCategorias = {};
+  aprovados.forEach((p) => {
+    const cat = p.tipoServico || 'Outros';
+    if (!mapaCategorias[cat]) {
+      mapaCategorias[cat] = { total: 0, direita: 0, esquerda: 0 };
+    }
+    mapaCategorias[cat].total += 1;
+    if (p.posicao === 'esquerda') mapaCategorias[cat].esquerda += 1;
+    else mapaCategorias[cat].direita += 1;
+  });
+
+  const listaCatOrdenada = Object.entries(mapaCategorias).sort((a, b) => b[1].total - a[1].total);
+  const catEl = document.getElementById('dashCategoriasList');
+  if (listaCatOrdenada.length === 0) {
+    catEl.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Nenhum cadastro aprovado ainda.</p>`;
+  } else {
+    catEl.innerHTML = listaCatOrdenada
+      .map(([nomeCat, info]) => {
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs">
+            <span class="font-bold text-slate-800 truncate">${escapeHtml(nomeCat)}</span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[11px]">${info.direita} Azul</span>
+              <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-bold text-[11px]">${info.esquerda} Verm.</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 font-extrabold text-[11px]">Total: ${info.total}</span>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  // 6. Novos Cadastros por Dia / Mês
+  const cadPorDia = {};
+  prestadores.forEach((p) => {
+    const dataIso = String(p.criadoEm || '').slice(0, 10) || hoje;
+    cadPorDia[dataIso] = (cadPorDia[dataIso] || 0) + 1;
+  });
+
+  const diasCadOrdenados = Object.entries(cadPorDia).sort((a, b) => b[0].localeCompare(a[0]));
+  const cadPeriodoEl = document.getElementById('dashCadastrosPeriodo');
+  if (diasCadOrdenados.length === 0) {
+    cadPeriodoEl.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Sem registros de datas de cadastro.</p>`;
+  } else {
+    cadPeriodoEl.innerHTML = diasCadOrdenados
+      .map(([diaIso, qtd]) => {
+        const formatado = diaIso.split('-').reverse().join('/');
+        return `
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+            <span class="font-semibold text-slate-700">Data: <strong>${formatado}</strong></span>
+            <span class="font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">+${qtd} ${qtd === 1 ? 'cadastro' : 'cadastros'}</span>
+          </div>
+        `;
+      })
+      .join('');
+  }
 }
 
 // ==========================================

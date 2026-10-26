@@ -221,10 +221,13 @@
           </div>
         </div>
         <div class="flex items-center gap-1.5">
+          <button onclick="openAdminDashboard()" class="px-2.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow" title="Abrir Página de Dashboard">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            <span>Dashboard</span>
+          </button>
           <button onclick="openCloudConfigModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1.5" title="Status do Firebase">
             <span id="firebaseStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
             <i data-lucide="database" class="w-4 h-4 text-amber-400"></i>
-            <span id="firebaseStatusText" class="hidden sm:inline">Firebase</span>
           </button>
           <button onclick="handleAdminLogout()" class="p-2 rounded-lg bg-red-950/60 hover:bg-red-900/80 text-red-300 text-xs flex items-center gap-1" title="Sair do Painel ADM">
             <i data-lucide="log-out" class="w-4 h-4"></i>
@@ -666,6 +669,163 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- PÁGINA DE DASHBOARD COMPLETO DO ADM -->
+  <div id="modalAdminDashboard" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6 select-text">
+    <div class="bg-slate-50 rounded-3xl max-w-6xl w-full h-[94vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      <!-- Header do Dashboard -->
+      <div class="bg-slate-900 text-white px-5 py-4 flex items-center justify-between shrink-0 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow">
+            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="font-extrabold text-base sm:text-lg leading-tight">Dashboard &amp; Estatísticas do Sistema</h2>
+            <p class="text-xs text-slate-400">Monitoramento em tempo real de Acessos (Dia / Mês / Total) e Cadastros</p>
+          </div>
+        </div>
+        <button onclick="closeAdminDashboard()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+          <span>Voltar ao Mapa ADM</span>
+        </button>
+      </div>
+
+      <!-- Conteúdo Rolável do Dashboard -->
+      <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+
+        <!-- SEÇÃO 1: MÉTRICAS DE ACESSOS DO SITE -->
+        <div class="space-y-3">
+          <h3 class="font-extrabold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-indigo-600"></i>
+            <span>Estatísticas de Acessos ao Site</span>
+          </h3>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <p class="text-xs font-bold text-slate-500">Acessos Hoje</p>
+              <p id="dashAcessosHoje" class="text-2xl sm:text-3xl font-extrabold text-indigo-600 mt-1">0</p>
+              <p id="dashLabelHoje" class="text-[11px] text-slate-400 mt-1">Hoje</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <p class="text-xs font-bold text-slate-500">Últimos 7 Dias</p>
+              <p id="dashAcessos7Dias" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-1">Soma da semana</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <p class="text-xs font-bold text-slate-500">Acessos no Mês</p>
+              <p id="dashAcessosMes" class="text-2xl sm:text-3xl font-extrabold text-sky-600 mt-1">0</p>
+              <p id="dashLabelMes" class="text-[11px] text-slate-400 mt-1">Mês atual</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <p class="text-xs font-bold text-slate-500">Total Geral</p>
+              <p id="dashAcessosTotal" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-1">Desde o início</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 shadow-sm col-span-2 sm:col-span-1">
+              <p class="text-xs font-bold text-emerald-800">Cliques WhatsApp</p>
+              <p id="dashCliquesZap" class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">0</p>
+              <p class="text-[11px] text-emerald-700 mt-1">Contatos iniciados</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 2: MÉTRICAS DE CADASTROS -->
+        <div class="space-y-3">
+          <h3 class="font-extrabold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="users" class="w-4 h-4 text-blue-600"></i>
+            <span>Quantidade de Cadastros no Guia</span>
+          </h3>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <p class="text-xs font-bold text-slate-500">Total Aprovados</p>
+              <p id="dashCadTotal" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-1">Ativos no sistema</p>
+            </div>
+
+            <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-200 shadow-sm">
+              <p class="text-xs font-bold text-blue-800 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                Direita (Azul)
+              </p>
+              <p id="dashCadDireita" class="text-2xl sm:text-3xl font-extrabold text-blue-600 mt-1">0</p>
+              <p id="dashPctDireita" class="text-[11px] text-blue-700 font-semibold mt-1">0% do total</p>
+            </div>
+
+            <div class="bg-red-50/60 p-4 rounded-2xl border border-red-200 shadow-sm">
+              <p class="text-xs font-bold text-red-800 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+                Esquerda (Verm.)
+              </p>
+              <p id="dashCadEsquerda" class="text-2xl sm:text-3xl font-extrabold text-red-600 mt-1">0</p>
+              <p id="dashPctEsquerda" class="text-[11px] text-red-700 font-semibold mt-1">0% do total</p>
+            </div>
+
+            <div class="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-sm">
+              <p class="text-xs font-bold text-amber-900">Pendentes</p>
+              <p id="dashCadPendentes" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">0</p>
+              <p class="text-[11px] text-amber-800 mt-1">Aguardando aprovação</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
+              <p class="text-xs font-bold text-slate-500">Com Mapa vs Sem</p>
+              <p id="dashCadMapaVsLista" class="text-lg sm:text-xl font-extrabold text-slate-800 mt-2">0 mapa / 0 lista</p>
+              <p class="text-[11px] text-slate-400 mt-1">Fixos vs Sem endereço</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 3: GRÁFICOS DE ACESSOS POR DIA E POR MÊS -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <!-- Gráfico de Barras: Últimos 14 Dias -->
+          <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="font-bold text-slate-800 text-sm">Acessos por Dia (Últimos 14 Dias)</h4>
+                <p class="text-xs text-slate-400">Evolução diária de visitas ao Guia</p>
+              </div>
+            </div>
+            <div id="dashChartDiario" class="h-48 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-slate-100 overflow-x-auto">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Tabela / Lista de Acessos por Mês -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 flex flex-col">
+            <div>
+              <h4 class="font-bold text-slate-800 text-sm">Acessos por Mês</h4>
+              <p class="text-xs text-slate-400">Histórico mensal acumulado</p>
+            </div>
+            <div id="dashListaMensal" class="flex-1 space-y-2 overflow-y-auto max-h-48 pr-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 4: CADASTROS POR CATEGORIA E POR PERÍODO -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <h4 class="font-bold text-slate-800 text-sm">Cadastros por Tipo de Serviço / Categoria</h4>
+            <div id="dashCategoriasList" class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <h4 class="font-bold text-slate-800 text-sm">Novos Cadastros por Dia / Mês</h4>
+            <div id="dashCadastrosPeriodo" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
