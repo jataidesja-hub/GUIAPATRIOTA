@@ -347,48 +347,65 @@
           </div>
 
           <!-- 5. ENDEREÇO COMERCIAL E LOCALIZAÇÃO NO MAPA -->
-          <div class="space-y-2 pt-1 border-t border-slate-200">
-            <label for="inputEndereco" class="block text-xs font-bold text-slate-700">
-              Endereço Comercial *
-            </label>
-            <div class="flex gap-2">
-              <input
-                type="text"
-                id="inputEndereco"
-                required
-                placeholder="Rua, Número, Bairro, Cidade - UF"
-                class="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                id="btnGeocode"
-                onclick="buscarEnderecoNoMapa()"
-                class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 transition"
-                title="Localizar endereço automaticamente no mapa"
-              >
-                <i data-lucide="search" class="w-4 h-4"></i>
-                <span>Localizar</span>
-              </button>
+          <div class="space-y-2.5 pt-2 border-t border-slate-200">
+            <div class="flex items-center justify-between gap-2">
+              <label for="inputEndereco" class="block text-xs font-bold text-slate-700">
+                Endereço Comercial (Opcional)
+              </label>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer select-none bg-slate-200/70 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition">
+                <input
+                  type="checkbox"
+                  id="inputSemEndereco"
+                  onchange="toggleSemEndereco(this.checked)"
+                  class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                />
+                <span class="text-[11px] font-bold text-slate-700">Sem endereço fixo</span>
+              </label>
             </div>
 
-            <!-- Coordinate Picker Actions -->
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <button
-                type="button"
-                onclick="toggleMapPickMode(true)"
-                class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
-              >
-                <i data-lucide="crosshair" class="w-3.5 h-3.5 text-emerald-600"></i>
-                <span>Ou clique no mapa para marcar ponto</span>
-              </button>
+            <div id="blocoCamposEndereco" class="space-y-2">
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  id="inputEndereco"
+                  placeholder="Rua, Número, Bairro, Cidade - UF (ou deixe em branco)"
+                  class="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  id="btnGeocode"
+                  onclick="buscarEnderecoNoMapa()"
+                  class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 transition"
+                  title="Localizar endereço automaticamente no mapa"
+                >
+                  <i data-lucide="search" class="w-4 h-4"></i>
+                  <span>Localizar</span>
+                </button>
+              </div>
 
-              <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
-                <span>Lat:</span>
-                <input type="number" step="any" id="inputLat" required placeholder="-9.403" class="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
-                <span>Lng:</span>
-                <input type="number" step="any" id="inputLng" required placeholder="-40.502" class="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+              <!-- Coordinate Picker Actions -->
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <button
+                  type="button"
+                  onclick="toggleMapPickMode(true)"
+                  class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                >
+                  <i data-lucide="crosshair" class="w-3.5 h-3.5 text-emerald-600"></i>
+                  <span>Ou clique no mapa para marcar ponto</span>
+                </button>
+
+                <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span>Lat:</span>
+                  <input type="number" step="any" id="inputLat" placeholder="-9.403" class="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                  <span>Lng:</span>
+                  <input type="number" step="any" id="inputLng" placeholder="-40.502" class="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                </div>
               </div>
             </div>
+
+            <p id="avisoSemEndereco" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5 font-medium">
+              Este prestador aparecerá na <strong>lista lateral</strong> com botão do WhatsApp e filtro de cor, sem pino fixo no mapa.
+            </p>
           </div>
 
           <!-- SUBMIT BUTTON -->

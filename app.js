@@ -497,6 +497,10 @@ function renderSidebarList(lista) {
       const labelPosicao = isEsquerda ? 'Esquerda • Vermelho' : 'Direita • Azul';
       const linkZap = formatarLinkWhatsapp(item.whatsapp, item.nome);
       const foneFormatado = formatarTelefoneExibicao(item.whatsapp);
+      const temMapa = !item.semEndereco && !isNaN(parseFloat(item.lat)) && !isNaN(parseFloat(item.lng));
+      const textoEndereco = item.endereco && item.endereco.trim()
+        ? item.endereco
+        : 'Prestador sem endereço fixo (Atendimento móvel / online)';
 
       return `
         <article
@@ -522,11 +526,14 @@ function renderSidebarList(lista) {
           </p>
 
           <div class="flex items-start gap-1.5 text-xs text-slate-500 mt-2">
-            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5"></i>
-            <span class="leading-tight">${escapeHtml(item.endereco)}</span>
+            <i data-lucide="${temMapa ? 'map-pin' : 'user-check'}" class="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5"></i>
+            <span class="leading-tight">${escapeHtml(textoEndereco)}</span>
           </div>
 
           <div class="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
+            ${
+              temMapa
+                ? `
             <button
               onclick="focarNoMapa('${item.id}')"
               class="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
@@ -534,6 +541,9 @@ function renderSidebarList(lista) {
               <i data-lucide="navigation" class="w-3.5 h-3.5 text-slate-600"></i>
               <span>Ver no Mapa</span>
             </button>
+            `
+                : ''
+            }
 
             <a
               href="${linkZap}"
@@ -814,6 +824,26 @@ function removerPinoTemporario() {
   }
 }
 
+function toggleSemEndereco(semEndereco) {
+  const bloco = document.getElementById('blocoCamposEndereco');
+  const aviso = document.getElementById('avisoSemEndereco');
+  const chk = document.getElementById('inputSemEndereco');
+  if (chk) chk.checked = Boolean(semEndereco);
+
+  if (semEndereco) {
+    bloco.classList.add('hidden');
+    aviso.classList.remove('hidden');
+    document.getElementById('inputEndereco').value = '';
+    document.getElementById('inputLat').value = '';
+    document.getElementById('inputLng').value = '';
+    toggleMapPickMode(false);
+    removerPinoTemporario();
+  } else {
+    bloco.classList.remove('hidden');
+    aviso.classList.add('hidden');
+  }
+}
+
 // ==========================================
 // CRUD DO ADMINISTRADOR (SALVAR, EDITAR, EXCLUIR)
 // ==========================================
@@ -831,14 +861,11 @@ async function saveProvider(e) {
   const tipoServico = document.getElementById('inputTipoServico').value.trim();
   const whatsapp = document.getElementById('inputWhatsapp').value.trim();
   const servicos = document.getElementById('inputServicos').value.trim();
-  const endereco = document.getElementById('inputEndereco').value.trim();
-  const lat = parseFloat(document.getElementById('inputLat').value);
-  const lng = parseFloat(document.getElementById('inputLng').value);
-
-  if (isNaN(lat) || isNaN(lng)) {
-    mostrarToast('Localize o endereço ou clique no mapa para definir as coordenadas.');
-    return;
-  }
+  const chkSemEnd = document.getElementById('inputSemEndereco')?.checked || false;
+  const endereco = chkSemEnd ? '' : document.getElementById('inputEndereco').value.trim();
+  const rawLat = parseFloat(document.getElementById('inputLat').value);
+  const rawLng = parseFloat(document.getElementById('inputLng').value);
+  const temCoordenadas = !chkSemEnd && !isNaN(rawLat) && !isNaN(rawLng);
 
   const novoItem = {
     id: id || String(Date.now()),
@@ -846,10 +873,11 @@ async function saveProvider(e) {
     tipoServico,
     servicos,
     endereco,
+    semEndereco: !temCoordenadas && !endereco,
     posicao,
     whatsapp,
-    lat,
-    lng,
+    lat: temCoordenadas ? rawLat : null,
+    lng: temCoordenadas ? rawLng : null,
     criadoEm: new Date().toISOString()
   };
 
@@ -858,17 +886,21 @@ async function saveProvider(e) {
     if (index !== -1) {
       prestadores[index] = novoItem;
     }
-    mostrarToast('Cadastro atualizado no Mapa e na Lista!');
+    mostrarToast('Cadastro atualizado!');
   } else {
     prestadores.unshift(novoItem);
-    mostrarToast('Novo endereço comercial adicionado no Mapa e na Lista!');
+    mostrarToast(temCoordenadas ? 'Adicionado no Mapa e na Lista!' : 'Prestador sem endereço fixo adicionado na Lista!');
   }
 
   salvarDadosLocal();
   removerPinoTemporario();
   resetAdminForm();
   renderAll();
-  focarNoMapa(novoItem.id);
+  if (temCoordenadas) {
+    focarNoMapa(novoItem.id);
+  } else {
+    destacarCardNaLista(novoItem.id);
+  }
 
   // Salva diretamente no Firebase Firestore se conectado
   if (db && isFirebaseConnected) {
@@ -886,14 +918,19 @@ function editarPrestador(id) {
   const item = prestadores.find((p) => p.id === id);
   if (!item) return;
 
+  const temCoords = !isNaN(parseFloat(item.lat)) && !isNaN(parseFloat(item.lng));
+  const isSemEnd = Boolean(item.semEndereco) || (!temCoords && !item.endereco);
+
   document.getElementById('providerId').value = item.id;
   document.getElementById('inputNome').value = item.nome;
   document.getElementById('inputTipoServico').value = item.tipoServico;
   document.getElementById('inputWhatsapp').value = formatarTelefoneExibicao(item.whatsapp);
   document.getElementById('inputServicos').value = item.servicos;
-  document.getElementById('inputEndereco').value = item.endereco;
-  document.getElementById('inputLat').value = item.lat;
-  document.getElementById('inputLng').value = item.lng;
+
+  toggleSemEndereco(isSemEnd);
+  document.getElementById('inputEndereco').value = item.endereco || '';
+  document.getElementById('inputLat').value = temCoords ? item.lat : '';
+  document.getElementById('inputLng').value = temCoords ? item.lng : '';
 
   const radio = document.querySelector(`input[name="posicao"][value="${item.posicao}"]`);
   if (radio) radio.checked = true;
@@ -905,8 +942,12 @@ function editarPrestador(id) {
   document.getElementById('lblSubmitBtn').textContent = 'Salvar Alterações';
   document.getElementById('btnCancelEdit').classList.remove('hidden');
 
-  definirCoordenadasFormulario(item.lat, item.lng);
-  map.flyTo([item.lat, item.lng], 16);
+  if (temCoords) {
+    definirCoordenadasFormulario(item.lat, item.lng);
+    map.flyTo([item.lat, item.lng], 16);
+  } else {
+    removerPinoTemporario();
+  }
   document.getElementById('adminForm').scrollIntoView({ behavior: 'smooth' });
   lucide.createIcons();
 }
@@ -941,6 +982,7 @@ async function excluirPrestador(id) {
 function resetAdminForm() {
   document.getElementById('adminForm').reset();
   document.getElementById('providerId').value = '';
+  toggleSemEndereco(false);
   document.getElementById('formTitle').innerHTML = `
     <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600"></i>
     <span>Novo Cadastro no Mapa & Lista</span>
@@ -965,6 +1007,9 @@ function renderAdminList() {
       const isEsquerda = item.posicao === 'esquerda';
       const corBolinha = isEsquerda ? 'bg-red-600' : 'bg-blue-600';
       const labelCor = isEsquerda ? 'Esquerda (Vermelho)' : 'Direita (Azul)';
+      const infoEnd = item.endereco && item.endereco.trim()
+        ? item.endereco
+        : 'Sem endereço fixo (Apenas no menu lateral)';
 
       return `
         <div class="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-2 hover:border-slate-300 transition">
@@ -974,7 +1019,7 @@ function renderAdminList() {
               <h4 class="font-bold text-xs text-slate-900 truncate">${escapeHtml(item.nome)}</h4>
             </div>
             <p class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(item.tipoServico)} • ${labelCor}</p>
-            <p class="text-[11px] text-slate-400 truncate">${escapeHtml(item.endereco)}</p>
+            <p class="text-[11px] text-slate-400 truncate">${escapeHtml(infoEnd)}</p>
           </div>
           <div class="flex items-center gap-1 shrink-0">
             <button
