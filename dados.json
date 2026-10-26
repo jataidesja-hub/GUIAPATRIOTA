@@ -1,0 +1,62 @@
+[
+  {
+    "id": "1",
+    "nome": "Oficina Mecânica Brasil Forte",
+    "tipoServico": "Mecânica e Auto Elétrica",
+    "servicos": "Revisão completa, alinhamento, balanceamento, freios, suspensão e injeção eletrônica.",
+    "endereco": "Av. Paulista, 1578 - Bela Vista, São Paulo - SP",
+    "posicao": "direita",
+    "whatsapp": "5511999991111",
+    "lat": -23.561414,
+    "lng": -46.655881,
+    "criadoEm": "2026-10-26T10:00:00.000Z"
+  },
+  {
+    "id": "2",
+    "nome": "Padaria e Confeitaria Liberdade",
+    "tipoServico": "Alimentação e Padaria",
+    "servicos": "Pães artesanais, café da manhã completo, encomendas de bolos, salgados e buffet.",
+    "endereco": "Rua Augusta, 1200 - Consolação, São Paulo - SP",
+    "posicao": "direita",
+    "whatsapp": "5511999992222",
+    "lat": -23.55582,
+    "lng": -46.65891,
+    "criadoEm": "2026-10-26T10:05:00.000Z"
+  },
+  {
+    "id": "3",
+    "nome": "Coletivo Cultural e Gráfica Popular",
+    "tipoServico": "Gráfica e Design",
+    "servicos": "Impressão digital, banners, cartões de visita, encadernação e materiais gráficos.",
+    "endereco": "Rua da Consolação, 2400 - Consolação, São Paulo - SP",
+    "posicao": "esquerda",
+    "whatsapp": "5511999993333",
+    "lat": -23.55315,
+    "lng": -46.66275,
+    "criadoEm": "2026-10-26T10:10:00.000Z"
+  },
+  {
+    "id": "4",
+    "nome": "Consultório Odontológico Sorriso Real",
+    "tipoServico": "Saúde e Odontologia",
+    "servicos": "Implantes, clareamento dental, ortodontia, limpeza e atendimento de emergência.",
+    "endereco": "Av. Brigadeiro Luís Antônio, 2050 - Bela Vista, São Paulo - SP",
+    "posicao": "direita",
+    "whatsapp": "5511999994444",
+    "lat": -23.56812,
+    "lng": -46.64792,
+    "criadoEm": "2026-10-26T10:12:00.000Z"
+  },
+  {
+    "id": "5",
+    "nome": "Livraria & Café Novo Tempo",
+    "tipoServico": "Livraria e Cafeteria",
+    "servicos": "Venda de livros novos e usados, cafeteria artesanal, espaço de coworking e eventos.",
+    "endereco": "Rua Oscar Freire, 800 - Jardim Paulista, São Paulo - SP",
+    "posicao": "esquerda",
+    "whatsapp": "5511999995555",
+    "lat": -23.56195,
+    "lng": -46.66912,
+    "criadoEm": "2026-10-26T10:15:00.000Z"
+  }
+]

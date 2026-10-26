@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guia Comercial & Serviços — Mapa Interativo</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="flex flex-col h-screen w-screen overflow-hidden select-none bg-slate-900">
+
+  <!-- TOP NAVBAR -->
+  <header class="h-16 bg-slate-900 text-white border-b border-slate-800 px-4 lg:px-6 flex items-center justify-between z-30 shrink-0 shadow-md">
+    <div class="flex items-center gap-3">
+      <button id="btnToggleSidebar" class="lg:hidden p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition" title="Abrir/Fechar Lista">
+        <i data-lucide="menu" class="w-5 h-5"></i>
+      </button>
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-slate-700 to-red-600 flex items-center justify-center shadow-inner">
+          <i data-lucide="map-pin" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-base sm:text-lg tracking-tight leading-none flex items-center gap-2">
+            GUIA COMERCIAL
+            <span id="badgeModeIndicator" class="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Acesso Livre
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">Mapa de Prestadores de Serviços e Endereços Comerciais</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER FILTER PILLS (DESKTOP) -->
+    <div class="hidden md:flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 gap-1">
+      <button onclick="setFilterPosicao('todos')" id="topFilterTodos" class="filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-white text-slate-900 shadow">
+        <span>Todos</span>
+        <span id="countTodosTop" class="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-200 text-slate-800">0</span>
+      </button>
+      <button onclick="setFilterPosicao('direita')" id="topFilterDireita" class="filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-blue-300 hover:bg-slate-700/60">
+        <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block ring-2 ring-blue-400/40"></span>
+        <span>Direita (Azul)</span>
+        <span id="countDireitaTop" class="px-1.5 py-0.2 rounded-full text-[11px] bg-blue-950 text-blue-300 border border-blue-800">0</span>
+      </button>
+      <button onclick="setFilterPosicao('esquerda')" id="topFilterEsquerda" class="filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-red-300 hover:bg-slate-700/60">
+        <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block ring-2 ring-red-400/40"></span>
+        <span>Esquerda (Vermelho)</span>
+        <span id="countEsquerdaTop" class="px-1.5 py-0.2 rounded-full text-[11px] bg-red-950 text-red-300 border border-red-800">0</span>
+      </button>
+    </div>
+
+    <!-- RIGHT ACTIONS: MODE SWITCH -->
+    <div class="flex items-center gap-2">
+      <button id="btnViewPublic" onclick="switchView('public')" class="hidden px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition items-center gap-1.5">
+        <i data-lucide="globe" class="w-4 h-4 text-emerald-400"></i>
+        <span>Ver Tela Livre</span>
+      </button>
+
+      <button id="btnViewAdmin" onclick="openAdminAccess()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-amber-500/20">
+        <i data-lucide="shield-check" class="w-4 h-4"></i>
+        <span id="lblAdminBtn">Área ADM</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="flex-1 flex relative overflow-hidden">
+
+    <!-- LEFT SIDEBAR: LISTA DE PRESTADORES DE SERVIÇOS -->
+    <aside id="sidebarPrestadores" class="w-full sm:w-[400px] lg:w-[430px] bg-white border-r border-slate-200 flex flex-col z-20 absolute lg:relative inset-y-0 left-0 transform translate-x-0 transition-transform duration-300 shadow-2xl lg:shadow-none">
+      
+      <!-- Search and Filters Header -->
+      <div class="p-4 border-b border-slate-200 bg-slate-50 space-y-3 shrink-0">
+        <div class="flex items-center justify-between">
+          <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <i data-lucide="briefcase" class="w-4 h-4 text-slate-600"></i>
+            Prestadores de Serviços
+          </h2>
+          <button id="btnCloseSidebarMobile" class="lg:hidden text-slate-500 hover:text-slate-800 p-1 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Mobile Filter Pills -->
+        <div class="grid grid-cols-3 gap-1.5 md:hidden bg-slate-200/80 p-1 rounded-xl">
+          <button onclick="setFilterPosicao('todos')" id="mobFilterTodos" class="py-1.5 px-2 rounded-lg text-xs font-bold bg-white text-slate-900 shadow text-center">
+            Todos (<span id="countTodosMob">0</span>)
+          </button>
+          <button onclick="setFilterPosicao('direita')" id="mobFilterDireita" class="py-1.5 px-2 rounded-lg text-xs font-bold text-blue-700 text-center flex items-center justify-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+            Azul (<span id="countDireitaMob">0</span>)
+          </button>
+          <button onclick="setFilterPosicao('esquerda')" id="mobFilterEsquerda" class="py-1.5 px-2 rounded-lg text-xs font-bold text-red-700 text-center flex items-center justify-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-red-600"></span>
+            Verm. (<span id="countEsquerdaMob">0</span>)
+          </button>
+        </div>
+
+        <!-- Search Input -->
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Buscar por nome, serviço ou endereço..."
+            class="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <button id="btnClearSearch" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <i data-lucide="x-circle" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Service Type Filter -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1">
+            <i data-lucide="filter" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+            <select
+              id="serviceTypeFilter"
+              class="w-full pl-8 pr-8 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+            >
+              <option value="todos">Todos os tipos de serviço</option>
+            </select>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          </div>
+
+          <button onclick="fitAllMarkers()" class="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-1.5 shrink-0 transition" title="Centralizar todos os pinos visíveis no mapa">
+            <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+            <span>Ver Todos</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Providers List Container -->
+      <div id="providersList" class="flex-1 overflow-y-auto p-3 space-y-3 select-text">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Footer Legend -->
+      <div class="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1.5 font-medium text-slate-700">
+            <span class="w-3 h-3 rounded-full bg-blue-600 inline-block"></span> Direita (Azul)
+          </span>
+          <span class="flex items-center gap-1.5 font-medium text-slate-700">
+            <span class="w-3 h-3 rounded-full bg-red-600 inline-block"></span> Esquerda (Vermelho)
+          </span>
+        </div>
+        <span id="lblResultCount" class="font-semibold text-slate-700">0 locais</span>
+      </div>
+    </aside>
+
+    <!-- MAP SECTION -->
+    <main class="flex-1 relative h-full w-full">
+      <div id="map"></div>
+
+      <!-- Floating Button to Reopen Sidebar on Mobile -->
+      <button
+        id="btnFloatingList"
+        onclick="toggleSidebar(true)"
+        class="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-10 bg-slate-900 text-white px-5 py-3 rounded-full shadow-2xl border border-slate-700 font-bold text-xs flex items-center gap-2"
+      >
+        <i data-lucide="list" class="w-4 h-4 text-blue-400"></i>
+        <span>Lista de Prestadores</span>
+      </button>
+
+      <!-- Floating Banner when Picking Coordinates on Map (Admin Mode) -->
+      <div
+        id="mapPickBanner"
+        class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-emerald-600 text-white px-5 py-2.5 rounded-2xl shadow-xl border border-emerald-400 text-xs sm:text-sm font-bold flex items-center gap-3 animate-bounce"
+      >
+        <i data-lucide="crosshair" class="w-5 h-5 shrink-0"></i>
+        <span>Clique em qualquer ponto do mapa para definir a localização exata!</span>
+        <button onclick="toggleMapPickMode(false)" class="bg-emerald-800 hover:bg-emerald-900 px-2.5 py-1 rounded-lg text-xs">
+          Cancelar
+        </button>
+      </div>
+    </main>
+
+    <!-- ADMIN PANEL DRAWER (SIDE-BY-SIDE WITH MAP WHEN IN ADMIN MODE) -->
+    <section
+      id="adminPanel"
+      class="hidden w-full sm:w-[460px] lg:w-[500px] bg-white border-l border-slate-200 flex-col z-20 absolute lg:relative inset-y-0 right-0 shadow-2xl select-text"
+    >
+      <!-- Admin Header -->
+      <div class="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-sm leading-tight">Painel do Administrador (ADM)</h2>
+            <p class="text-[11px] text-slate-400">Cadastre ou edite no Mapa e Menu Lateral</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="openCloudConfigModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1" title="Configurar Banco de Dados / GitHub">
+            <i data-lucide="cloud" class="w-4 h-4 text-sky-400"></i>
+            <span class="hidden sm:inline">Nuvem</span>
+          </button>
+          <button onclick="switchView('public')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300" title="Fechar Painel ADM">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Admin Content Scroll -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-6">
+
+        <!-- FORM CARD -->
+        <form id="adminForm" onsubmit="saveProvider(event)" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 shadow-sm">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+            <h3 id="formTitle" class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600"></i>
+              <span>Novo Cadastro no Mapa & Lista</span>
+            </h3>
+            <button type="button" id="btnCancelEdit" onclick="resetAdminForm()" class="hidden text-xs font-semibold text-red-600 hover:underline">
+              Cancelar Edição
+            </button>
+          </div>
+
+          <input type="hidden" id="providerId" value="" />
+
+          <!-- 1. POSICIONAMENTO (AZUL DIREITA / VERMELHO ESQUERDA) -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              1. Cor da Marcação no Mapa e Lista *
+            </label>
+            <div class="grid grid-cols-2 gap-2.5">
+              <label class="cursor-pointer">
+                <input type="radio" name="posicao" value="direita" class="peer sr-only" checked />
+                <div class="p-3 rounded-xl border-2 border-slate-200 bg-white peer-checked:border-blue-600 peer-checked:bg-blue-50/70 transition flex items-center gap-2.5">
+                  <span class="w-4 h-4 rounded-full bg-blue-600 shrink-0 ring-4 ring-blue-600/20"></span>
+                  <div>
+                    <div class="font-bold text-xs text-blue-950">DIREITA</div>
+                    <div class="text-[11px] text-blue-700 font-medium">Pino Azul</div>
+                  </div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer">
+                <input type="radio" name="posicao" value="esquerda" class="peer sr-only" />
+                <div class="p-3 rounded-xl border-2 border-slate-200 bg-white peer-checked:border-red-600 peer-checked:bg-red-50/70 transition flex items-center gap-2.5">
+                  <span class="w-4 h-4 rounded-full bg-red-600 shrink-0 ring-4 ring-red-600/20"></span>
+                  <div>
+                    <div class="font-bold text-xs text-red-950">ESQUERDA</div>
+                    <div class="text-[11px] text-red-700 font-medium">Pino Vermelho</div>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- 2. NOME COMERCIAL / PRESTADOR -->
+          <div>
+            <label for="inputNome" class="block text-xs font-bold text-slate-700 mb-1">
+              Nome do Estabelecimento ou Prestador *
+            </label>
+            <input
+              type="text"
+              id="inputNome"
+              required
+              placeholder="Ex: Oficina Brasil, Dr. João Silva, Padaria Central..."
+              class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <!-- 3. TIPO DE SERVIÇO E WHATSAPP -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="inputTipoServico" class="block text-xs font-bold text-slate-700 mb-1">
+                Tipo de Serviço / Categoria *
+              </label>
+              <input
+                type="text"
+                id="inputTipoServico"
+                list="listaCategoriasSugeridas"
+                required
+                placeholder="Ex: Advocacia, Mecânica..."
+                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <datalist id="listaCategoriasSugeridas">
+                <option value="Advocacia e Jurídico"></option>
+                <option value="Alimentação e Restaurantes"></option>
+                <option value="Mecânica e Automotivo"></option>
+                <option value="Saúde, Médicos e Dentistas"></option>
+                <option value="Construção, Reforma e Elétrica"></option>
+                <option value="Contabilidade e Consultoria"></option>
+                <option value="Tecnologia e Informática"></option>
+                <option value="Comércio e Lojas"></option>
+                <option value="Beleza e Barbearia"></option>
+                <option value="Educação e Cursos"></option>
+              </datalist>
+            </div>
+
+            <div>
+              <label for="inputWhatsapp" class="block text-xs font-bold text-slate-700 mb-1">
+                WhatsApp (com DDD) *
+              </label>
+              <input
+                type="text"
+                id="inputWhatsapp"
+                required
+                placeholder="Ex: (11) 99999-9999"
+                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <!-- 4. QUAIS SERVIÇOS PRESTAM -->
+          <div>
+            <label for="inputServicos" class="block text-xs font-bold text-slate-700 mb-1">
+              Quais Serviços Prestam (Descrição) *
+            </label>
+            <textarea
+              id="inputServicos"
+              rows="2"
+              required
+              placeholder="Descreva os serviços prestados ou produtos vendidos..."
+              class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            ></textarea>
+          </div>
+
+          <!-- 5. ENDEREÇO COMERCIAL E LOCALIZAÇÃO NO MAPA -->
+          <div class="space-y-2 pt-1 border-t border-slate-200">
+            <label for="inputEndereco" class="block text-xs font-bold text-slate-700">
+              Endereço Comercial *
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                id="inputEndereco"
+                required
+                placeholder="Rua, Número, Bairro, Cidade - UF"
+                class="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                id="btnGeocode"
+                onclick="buscarEnderecoNoMapa()"
+                class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 transition"
+                title="Localizar endereço automaticamente no mapa"
+              >
+                <i data-lucide="search" class="w-4 h-4"></i>
+                <span>Localizar</span>
+              </button>
+            </div>
+
+            <!-- Coordinate Picker Actions -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <button
+                type="button"
+                onclick="toggleMapPickMode(true)"
+                class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+              >
+                <i data-lucide="crosshair" class="w-3.5 h-3.5 text-emerald-600"></i>
+                <span>Ou clique no mapa para marcar ponto</span>
+              </button>
+
+              <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <span>Lat:</span>
+                <input type="number" step="any" id="inputLat" required placeholder="-23.561" class="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+                <span>Lng:</span>
+                <input type="number" step="any" id="inputLng" required placeholder="-46.655" class="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs" />
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBMIT BUTTON -->
+          <button
+            type="submit"
+            id="btnSubmitProvider"
+            class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/25 transition flex items-center justify-center gap-2"
+          >
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span id="lblSubmitBtn">Salvar no Mapa e Menu Lateral</span>
+          </button>
+        </form>
+
+        <!-- MANAGE EXISTING PROVIDERS IN ADMIN -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i data-lucide="layers" class="w-4 h-4 text-slate-600"></i>
+              <span>Cadastros Ativos (<span id="adminTotalCount">0</span>)</span>
+            </h3>
+            <div class="flex items-center gap-1.5">
+              <button onclick="exportarDadosJSON()" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1" title="Baixar backup JSON">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Exportar</span>
+              </button>
+              <label class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer" title="Importar arquivo JSON">
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                <span>Importar</span>
+                <input type="file" accept=".json" onchange="importarDadosJSON(event)" class="hidden" />
+              </label>
+            </div>
+          </div>
+
+          <div id="adminProvidersList" class="space-y-2">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL: ADMIN LOGIN -->
+  <div id="modalAdminLogin" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+            <i data-lucide="lock" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Acesso Restrito ADM</h3>
+            <p class="text-xs text-slate-500">Digite a senha de administrador</p>
+          </div>
+        </div>
+        <button onclick="closeAdminLoginModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleAdminLogin(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Senha do ADM</label>
+          <input
+            type="password"
+            id="inputAdminPassword"
+            placeholder="Digite a senha..."
+            required
+            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
+          <p class="text-[11px] text-slate-400 mt-1">Senha inicial padrão: <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-700">admin123</code></p>
+        </div>
+
+        <p id="loginErrorMsg" class="hidden text-xs font-semibold text-red-600 bg-red-50 p-2 rounded-lg border border-red-200">
+          Senha incorreta. Tente novamente.
+        </p>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeAdminLoginModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow">
+            Entrar no Painel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CLOUD / GITHUB SYNC CONFIG -->
+  <div id="modalCloudConfig" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 select-text">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
+            <i data-lucide="cloud-cog" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Publicação Direta no GitHub / Vercel</h3>
+            <p class="text-xs text-slate-500">Salve alterações direto no repositório online</p>
+          </div>
+        </div>
+        <button onclick="closeCloudConfigModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-600 space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+        <p>Para que qualquer cadastro feito pelo ADM atualize automaticamente o site público na Vercel para todos os visitantes, informe um <strong>Token do GitHub (Personal Access Token)</strong> com permissão <code class="bg-slate-200 px-1 rounded">repo</code>:</p>
+      </div>
+
+      <form onsubmit="saveCloudConfig(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Repositório GitHub</label>
+          <input
+            type="text"
+            id="inputGithubRepo"
+            value="jataidesja-hub/GUIAPATRIOTA"
+            class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-mono"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">GitHub Personal Access Token (ghp_...)</label>
+          <input
+            type="password"
+            id="inputGithubToken"
+            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-mono"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Alterar Senha do ADM</label>
+          <input
+            type="text"
+            id="inputNewAdminPass"
+            placeholder="admin123"
+            class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs"
+          />
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <button type="button" onclick="syncToGitHubNow()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white flex items-center gap-1.5">
+            <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+            <span>Publicar Dados Agora</span>
+          </button>
+
+          <div class="flex gap-2">
+            <button type="button" onclick="closeCloudConfigModal()" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">
+              Fechar
+            </button>
+            <button type="submit" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white">
+              Salvar Config
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastNotification" class="hidden fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-700 text-xs font-semibold flex items-center gap-2.5">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toastText">Salvo com sucesso!</span>
+  </div>
+
+  <!-- Main Script -->
+  <script src="./app.js"></script>
+</body>
+</html>
