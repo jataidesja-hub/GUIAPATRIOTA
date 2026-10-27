@@ -811,6 +811,7 @@ function aplicarPermissoesRoleAdmin() {
   const master = isMasterAdmin();
   const badgeMaster = document.getElementById('badgeMasterRole');
   const btnPromo = document.getElementById('btnMasterPropaganda');
+  const btnRel = document.getElementById('btnMasterRelatorio');
   const btnDash = document.getElementById('btnMasterDashboard');
   const btnCloud = document.getElementById('btnMasterCloudConfig');
   const lblSub = document.getElementById('lblAdminRoleSubtitle');
@@ -819,6 +820,10 @@ function aplicarPermissoesRoleAdmin() {
   if (btnPromo) {
     btnPromo.classList.toggle('hidden', !master);
     btnPromo.classList.toggle('flex', master);
+  }
+  if (btnRel) {
+    btnRel.classList.toggle('hidden', !master);
+    btnRel.classList.toggle('flex', master);
   }
   if (btnDash) {
     btnDash.classList.toggle('hidden', !master);
@@ -2613,6 +2618,394 @@ function renderListaPropagandasMaster() {
       `;
     })
     .join('');
+}
+
+// ==========================================
+// RELATÓRIO DE EMPRESAS POR CATEGORIA (EXCLUSIVO ADM MASTER)
+// ==========================================
+function openAdminRelatorioModal() {
+  if (!isMasterAdmin()) {
+    mostrarToast('Acesso restrito ao ADM Master.');
+    return;
+  }
+
+  // Popula o select de categorias disponíveis
+  const selectCat = document.getElementById('filtroRelatorioCategoria');
+  if (selectCat) {
+    const atual = selectCat.value || 'todas';
+    const cats = [...new Set(prestadores.map((p) => (p.tipoServico || 'Sem Categoria').trim()).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, 'pt-BR')
+    );
+    selectCat.innerHTML = `<option value="todas">Todas as Categorias (${cats.length})</option>`;
+    cats.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      selectCat.appendChild(opt);
+    });
+    if (cats.includes(atual)) selectCat.value = atual;
+  }
+
+  renderRelatorioMaster();
+  document.getElementById('modalAdminRelatorio').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeAdminRelatorioModal() {
+  const modal = document.getElementById('modalAdminRelatorio');
+  if (modal) modal.classList.add('hidden');
+}
+
+function obterDadosAgrupadosRelatorio() {
+  const catFiltro = document.getElementById('filtroRelatorioCategoria')?.value || 'todas';
+  const statusFiltro = document.getElementById('filtroRelatorioStatus')?.value || 'aprovados';
+  const buscaFiltro = (document.getElementById('filtroRelatorioBusca')?.value || '').trim().toLowerCase();
+
+  const filtrados = prestadores.filter((p) => {
+    const statusItem = p.status === 'pendente' ? 'pendente' : 'aprovado';
+    if (statusFiltro === 'aprovados' && statusItem !== 'aprovado') return false;
+    if (statusFiltro === 'pendentes' && statusItem !== 'pendente') return false;
+
+    const catItem = (p.tipoServico || 'Sem Categoria').trim();
+    if (catFiltro !== 'todas' && catItem !== catFiltro) return false;
+
+    if (buscaFiltro) {
+      const texto = `${p.nome || ''} ${catItem} ${p.servicos || ''} ${p.whatsapp || ''} ${p.instagram || ''} ${p.endereco || ''}`.toLowerCase();
+      if (!texto.includes(buscaFiltro)) return false;
+    }
+
+    return true;
+  });
+
+  // Agrupa por categoria em ordem alfabética, e empresas em ordem alfabética dentro de cada categoria
+  const grupos = {};
+  filtrados.forEach((p) => {
+    const cat = (p.tipoServico || 'Sem Categoria').trim();
+    if (!grupos[cat]) grupos[cat] = [];
+    grupos[cat].push(p);
+  });
+
+  const categoriasOrdenadas = Object.keys(grupos).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  categoriasOrdenadas.forEach((cat) => {
+    grupos[cat].sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+  });
+
+  return {
+    filtrados,
+    grupos,
+    categoriasOrdenadas
+  };
+}
+
+function renderRelatorioMaster() {
+  const { filtrados, grupos, categoriasOrdenadas } = obterDadosAgrupadosRelatorio();
+
+  const comZap = filtrados.filter((p) => String(p.whatsapp || '').replace(/\D/g, '').length >= 8).length;
+  const comInsta = filtrados.filter((p) => String(p.instagram || '').trim().length > 0).length;
+
+  const elTotalEmp = document.getElementById('relTotalEmpresas');
+  const elTotalCat = document.getElementById('relTotalCategorias');
+  const elTotalZap = document.getElementById('relTotalComZap');
+  const elTotalInsta = document.getElementById('relTotalComInsta');
+
+  if (elTotalEmp) elTotalEmp.textContent = filtrados.length;
+  if (elTotalCat) elTotalCat.textContent = categoriasOrdenadas.length;
+  if (elTotalZap) elTotalZap.textContent = comZap;
+  if (elTotalInsta) elTotalInsta.textContent = comInsta;
+
+  const container = document.getElementById('relatorioConteudoCategorias');
+  if (!container) return;
+
+  if (categoriasOrdenadas.length === 0) {
+    container.innerHTML = `
+      <div class="p-8 text-center bg-white rounded-2xl border border-slate-200">
+        <p class="text-sm font-bold text-slate-600">Nenhuma empresa encontrada para os filtros selecionados.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = categoriasOrdenadas
+    .map((cat) => {
+      const lista = grupos[cat];
+      const linhasHtml = lista
+        .map((p, idx) => {
+          const telExibicao = formatarTelefoneExibicao(p.whatsapp) || 'Não informado';
+          const instaRaw = String(p.instagram || '').trim();
+          const instaExibicao = instaRaw ? (instaRaw.startsWith('@') || instaRaw.startsWith('http') ? instaRaw : `@${instaRaw}`) : '—';
+          const enderecoExibicao = p.semEndereco || !p.endereco ? 'Sem endereço fixo (Atendimento móvel / online)' : p.endereco;
+          const dataCad = p.criadoEm ? String(p.criadoEm).slice(0, 10).split('-').reverse().join('/') : '—';
+          const statusBadge =
+            p.status === 'pendente'
+              ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Pendente</span>`
+              : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Aprovado</span>`;
+
+          return `
+            <tr class="border-t border-slate-100 hover:bg-slate-50/80 transition">
+              <td class="py-2.5 px-3 text-xs font-bold text-slate-400">${idx + 1}</td>
+              <td class="py-2.5 px-3">
+                <div class="font-extrabold text-xs sm:text-sm text-slate-900">${escapeHtml(p.nome)}</div>
+                <div class="mt-0.5">${statusBadge}</div>
+              </td>
+              <td class="py-2.5 px-3 text-xs text-slate-700 max-w-xs">${escapeHtml(p.servicos || '—')}</td>
+              <td class="py-2.5 px-3 text-xs font-bold text-emerald-700 whitespace-nowrap">${escapeHtml(telExibicao)}</td>
+              <td class="py-2.5 px-3 text-xs font-semibold text-pink-600">${escapeHtml(instaExibicao)}</td>
+              <td class="py-2.5 px-3 text-xs text-slate-600 max-w-xs">${escapeHtml(enderecoExibicao)}</td>
+              <td class="py-2.5 px-3 text-[11px] text-slate-400 whitespace-nowrap">${escapeHtml(dataCad)}</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      return `
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-4 py-3 bg-slate-900 text-white flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              <h3 class="font-extrabold text-sm uppercase tracking-wide">${escapeHtml(cat)}</h3>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-500 text-slate-950">
+              ${lista.length} ${lista.length === 1 ? 'empresa' : 'empresas'}
+            </span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-[11px] font-extrabold uppercase text-slate-600">
+                  <th class="py-2 px-3 w-10">#</th>
+                  <th class="py-2 px-3">Empresa / Prestador</th>
+                  <th class="py-2 px-3">Serviços / Especialidades</th>
+                  <th class="py-2 px-3">WhatsApp / Número</th>
+                  <th class="py-2 px-3">Instagram</th>
+                  <th class="py-2 px-3">Endereço / Atendimento</th>
+                  <th class="py-2 px-3">Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${linhasHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function exportarRelatorioCSV() {
+  if (!isMasterAdmin()) return;
+
+  const { filtrados, grupos, categoriasOrdenadas } = obterDadosAgrupadosRelatorio();
+  if (filtrados.length === 0) {
+    mostrarToast('Nenhum dado para exportar.');
+    return;
+  }
+
+  const limparCampoCSV = (val) => {
+    const str = String(val ?? '').replace(/\r?\n|\r/g, ' ').replace(/"/g, '""').trim();
+    return `"${str}"`;
+  };
+
+  const cabecalho = [
+    'Categoria',
+    'Nome da Empresa / Prestador',
+    'Servicos Oferecidos',
+    'WhatsApp / Telefone',
+    'Instagram',
+    'Endereco',
+    'Modalidade',
+    'Status',
+    'Data de Cadastro'
+  ].map(limparCampoCSV).join(';');
+
+  const linhas = [cabecalho];
+
+  categoriasOrdenadas.forEach((cat) => {
+    grupos[cat].forEach((p) => {
+      const tel = formatarTelefoneExibicao(p.whatsapp) || p.whatsapp || '';
+      const insta = String(p.instagram || '').trim();
+      const endereco = p.semEndereco || !p.endereco ? 'Sem endereco fixo (Atendimento movel)' : p.endereco;
+      const modalidade = p.semEndereco ? 'Sem Endereco Fixo' : 'Com Endereco no Mapa';
+      const status = p.status === 'pendente' ? 'Pendente' : 'Aprovado';
+      const dataCad = p.criadoEm ? String(p.criadoEm).slice(0, 10).split('-').reverse().join('/') : '';
+
+      linhas.push(
+        [
+          cat,
+          p.nome || '',
+          p.servicos || '',
+          tel,
+          insta,
+          endereco,
+          modalidade,
+          status,
+          dataCad
+        ].map(limparCampoCSV).join(';')
+      );
+    });
+  });
+
+  // Adiciona BOM UTF-8 (\uFEFF) para abrir perfeitamente acentuado no Microsoft Excel
+  const conteudoCSV = '\uFEFF' + linhas.join('\r\n');
+  const blob = new Blob([conteudoCSV], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const hoje = obterChaveDiaHoje().split('-').reverse().join('-');
+  link.href = url;
+  link.download = `relatorio_empresas_por_categoria_${hoje}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  mostrarToast('Planilha Excel/CSV baixada com sucesso!');
+}
+
+function copiarRelatorioTexto() {
+  if (!isMasterAdmin()) return;
+
+  const { filtrados, grupos, categoriasOrdenadas } = obterDadosAgrupadosRelatorio();
+  if (filtrados.length === 0) {
+    mostrarToast('Nenhum dado para copiar.');
+    return;
+  }
+
+  const hoje = obterChaveDiaHoje().split('-').reverse().join('/');
+  const blocos = [
+    `📊 *RELATÓRIO GERAL DE EMPRESAS E PRESTADORES POR CATEGORIA*`,
+    `📅 Gerado em: ${hoje} | Total: ${filtrados.length} empresas em ${categoriasOrdenadas.length} categorias`,
+    `================================================`
+  ];
+
+  categoriasOrdenadas.forEach((cat) => {
+    const lista = grupos[cat];
+    blocos.push(`\n📂 *${cat.toUpperCase()} (${lista.length})*`);
+    blocos.push(`------------------------------------------------`);
+    lista.forEach((p, idx) => {
+      const tel = formatarTelefoneExibicao(p.whatsapp) || 'Não informado';
+      const insta = String(p.instagram || '').trim();
+      const end = p.semEndereco || !p.endereco ? 'Atendimento móvel / Sem endereço fixo' : p.endereco;
+      blocos.push(`${idx + 1}. *${p.nome}*`);
+      if (p.servicos) blocos.push(`   🛠️ Serviços: ${p.servicos}`);
+      blocos.push(`   📱 WhatsApp: ${tel}`);
+      if (insta) blocos.push(`   📸 Instagram: ${insta}`);
+      blocos.push(`   📍 Endereço: ${end}`);
+    });
+  });
+
+  const textoFinal = blocos.join('\n');
+  navigator.clipboard
+    .writeText(textoFinal)
+    .then(() => mostrarToast('Relatório completo copiado para a área de transferência!'))
+    .catch(() => mostrarToast('Não foi possível copiar automaticamente.'));
+}
+
+function imprimirRelatorioPDF() {
+  if (!isMasterAdmin()) return;
+
+  const { filtrados, grupos, categoriasOrdenadas } = obterDadosAgrupadosRelatorio();
+  if (filtrados.length === 0) {
+    mostrarToast('Nenhum dado para imprimir.');
+    return;
+  }
+
+  const hoje = obterChaveDiaHoje().split('-').reverse().join('/');
+  const secoesHtml = categoriasOrdenadas
+    .map((cat) => {
+      const lista = grupos[cat];
+      const linhas = lista
+        .map((p, idx) => {
+          const tel = formatarTelefoneExibicao(p.whatsapp) || 'Não informado';
+          const insta = String(p.instagram || '').trim() || '—';
+          const end = p.semEndereco || !p.endereco ? 'Sem endereço fixo (Atendimento móvel)' : p.endereco;
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><strong>${escapeHtml(p.nome)}</strong></td>
+              <td>${escapeHtml(p.servicos || '—')}</td>
+              <td>${escapeHtml(tel)}</td>
+              <td>${escapeHtml(insta)}</td>
+              <td>${escapeHtml(end)}</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      return `
+        <div class="cat-block">
+          <div class="cat-header">
+            <span>${escapeHtml(cat)}</span>
+            <span>${lista.length} ${lista.length === 1 ? 'empresa' : 'empresas'}</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 32px;">#</th>
+                <th style="width: 22%;">Empresa / Prestador</th>
+                <th style="width: 26%;">Serviços Oferecidos</th>
+                <th style="width: 15%;">WhatsApp / Número</th>
+                <th style="width: 14%;">Instagram</th>
+                <th>Endereço / Atendimento</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${linhas}
+            </tbody>
+          </table>
+        </div>
+      `;
+    })
+    .join('');
+
+  const win = window.open('', '_blank');
+  if (!win) {
+    mostrarToast('Permita pop-ups no navegador para gerar o PDF / Impressão.');
+    return;
+  }
+
+  win.document.write(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Relatório de Empresas por Categoria - ${hoje}</title>
+      <style>
+        body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 24px; font-size: 12px; }
+        .top-header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .top-header h1 { margin: 0 0 4px 0; font-size: 20px; }
+        .top-header p { margin: 0; color: #475569; font-size: 12px; }
+        .cat-block { margin-bottom: 22px; page-break-inside: avoid; }
+        .cat-header { background: #0f172a; color: #fff; padding: 8px 12px; font-weight: bold; font-size: 13px; text-transform: uppercase; display: flex; justify-content: space-between; border-radius: 6px 6px 0 0; }
+        table { width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; }
+        th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; font-size: 11px; }
+        th { background: #f1f5f9; font-weight: bold; text-transform: uppercase; font-size: 10px; color: #334155; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        @media print {
+          body { margin: 10mm; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="top-header">
+        <div>
+          <h1>Relatório Geral de Empresas e Prestadores por Categoria</h1>
+          <p>Guia Comercial &amp; Serviços — Juazeiro-BA e Petrolina-PE</p>
+        </div>
+        <div style="text-align: right;">
+          <p><strong>Data:</strong> ${hoje}</p>
+          <p><strong>Total:</strong> ${filtrados.length} empresas em ${categoriasOrdenadas.length} categorias</p>
+        </div>
+      </div>
+      ${secoesHtml}
+      <script>
+        window.onload = function() { window.print(); };
+      <\/script>
+    </body>
+    </html>
+  `);
+  win.document.close();
 }
 
 // ==========================================

@@ -228,6 +228,15 @@
             <span class="hidden sm:inline">Propaganda</span>
           </button>
           <button
+            id="btnMasterRelatorio"
+            onclick="openAdminRelatorioModal()"
+            class="hidden px-2.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold items-center gap-1.5 shadow"
+            title="Extrair Relatório Completo por Categorias (Exclusivo Master)"
+          >
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Relatório</span>
+          </button>
+          <button
             id="btnMasterDashboard"
             onclick="openAdminDashboard()"
             class="hidden px-2.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold items-center gap-1.5 shadow"
@@ -692,10 +701,16 @@
             <p class="text-xs text-slate-400">Monitoramento em tempo real de Acessos (Dia / Mês / Total) e Cadastros</p>
           </div>
         </div>
-        <button onclick="closeAdminDashboard()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition">
-          <i data-lucide="x" class="w-4 h-4"></i>
-          <span>Voltar ao Mapa ADM</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="openAdminRelatorioModal()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow transition">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span>Extrair Relatório por Categoria</span>
+          </button>
+          <button onclick="closeAdminDashboard()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="x" class="w-4 h-4"></i>
+            <span>Voltar ao Mapa ADM</span>
+          </button>
+        </div>
       </div>
 
       <!-- Conteúdo Rolável do Dashboard -->
@@ -1076,6 +1091,126 @@
     </div>
   </div>
 
+  <!-- MODAL RELATÓRIO COMPLETO POR CATEGORIAS (EXCLUSIVO ADM MASTER) -->
+  <div id="modalAdminRelatorio" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6">
+    <div class="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden border border-slate-200">
+      <!-- Topo do Modal de Relatório -->
+      <div class="p-4 sm:p-5 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow">
+            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-extrabold text-base sm:text-lg leading-tight">Relatório de Empresas por Categoria</h2>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-400 text-slate-950">MASTER</span>
+            </div>
+            <p class="text-xs text-slate-400">Empresas, serviços, números de WhatsApp, Instagram e endereços separados por categoria</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onclick="exportarRelatorioCSV()"
+            class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow transition"
+          >
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Baixar Excel / CSV</span>
+          </button>
+          <button
+            type="button"
+            onclick="imprimirRelatorioPDF()"
+            class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow transition"
+          >
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Imprimir / Salvar PDF</span>
+          </button>
+          <button
+            type="button"
+            onclick="copiarRelatorioTexto()"
+            class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 shadow transition"
+          >
+            <i data-lucide="copy" class="w-4 h-4"></i>
+            <span>Copiar Texto</span>
+          </button>
+          <button
+            type="button"
+            onclick="closeAdminRelatorioModal()"
+            class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 transition"
+          >
+            <i data-lucide="x" class="w-4 h-4"></i>
+            <span>Fechar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros e Resumo do Relatório -->
+      <div class="p-4 bg-white border-b border-slate-200 space-y-3 shrink-0">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtrar por Categoria</label>
+            <select
+              id="filtroRelatorioCategoria"
+              onchange="renderRelatorioMaster()"
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="todas">Todas as Categorias</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Status do Cadastro</label>
+            <select
+              id="filtroRelatorioStatus"
+              onchange="renderRelatorioMaster()"
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="aprovados">Apenas Aprovados (Ativos no Guia)</option>
+              <option value="todos">Todos (Aprovados + Pendentes)</option>
+              <option value="pendentes">Apenas Pendentes de Aprovação</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Buscar no Relatório</label>
+            <input
+              type="text"
+              id="filtroRelatorioBusca"
+              oninput="renderRelatorioMaster()"
+              placeholder="Filtrar por nome, serviço, telefone..."
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+          <div class="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-600">Total Empresas:</span>
+            <span id="relTotalEmpresas" class="text-sm font-extrabold text-slate-900">0</span>
+          </div>
+          <div class="px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between">
+            <span class="text-xs font-semibold text-blue-800">Categorias:</span>
+            <span id="relTotalCategorias" class="text-sm font-extrabold text-blue-700">0</span>
+          </div>
+          <div class="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+            <span class="text-xs font-semibold text-emerald-800">Com WhatsApp:</span>
+            <span id="relTotalComZap" class="text-sm font-extrabold text-emerald-700">0</span>
+          </div>
+          <div class="px-3 py-2 rounded-xl bg-pink-50 border border-pink-200 flex items-center justify-between">
+            <span class="text-xs font-semibold text-pink-800">Com Instagram:</span>
+            <span id="relTotalComInsta" class="text-sm font-extrabold text-pink-700">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo Rolável Separado por Categorias -->
+      <div id="relatorioConteudoCategorias" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION -->
   <div id="toastNotification" class="hidden fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-700 text-xs font-semibold flex items-center gap-2.5">
     <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
@@ -1083,6 +1218,6 @@
   </div>
 
   <!-- Main Script -->
-  <script src="./app.js?v=3"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 </html>
