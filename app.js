@@ -83,10 +83,10 @@ function initMap() {
   });
 }
 
-function criarIconePino(posicao) {
-  const classeCor = posicao === 'cinza' ? 'cinza' : posicao === 'esquerda' ? 'esquerda' : 'direita';
-  const tamanho = posicao === 'cinza' ? [28, 28] : [36, 36];
-  const ancora = posicao === 'cinza' ? [14, 28] : [18, 36];
+function criarIconePino(tipo) {
+  const classeCor = tipo === 'cinza' ? 'cinza' : 'direita';
+  const tamanho = tipo === 'cinza' ? [28, 28] : [36, 36];
+  const ancora = tipo === 'cinza' ? [14, 28] : [18, 36];
   return L.divIcon({
     className: 'custom-pin-wrapper',
     html: `
@@ -347,53 +347,16 @@ function clearSearch() {
   renderAll();
 }
 
-function setFilterPosicao(posicao) {
-  filtroPosicao = posicao;
-  atualizarBotoesFiltroPosicao();
-  renderAll();
-}
-
-function atualizarBotoesFiltroPosicao() {
-  // Desktop buttons
-  const topTodos = document.getElementById('topFilterTodos');
-  const topDireita = document.getElementById('topFilterDireita');
-  const topEsquerda = document.getElementById('topFilterEsquerda');
-
-  topTodos.className = 'filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ' +
-    (filtroPosicao === 'todos' ? 'bg-white text-slate-900 shadow' : 'text-slate-300 hover:bg-slate-700/60');
-
-  topDireita.className = 'filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ' +
-    (filtroPosicao === 'direita' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-blue-300 hover:bg-slate-700/60');
-
-  topEsquerda.className = 'filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ' +
-    (filtroPosicao === 'esquerda' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'text-red-300 hover:bg-slate-700/60');
-
-  // Mobile buttons
-  const mobTodos = document.getElementById('mobFilterTodos');
-  const mobDireita = document.getElementById('mobFilterDireita');
-  const mobEsquerda = document.getElementById('mobFilterEsquerda');
-
-  mobTodos.className = 'py-1.5 px-2 rounded-lg text-xs font-bold text-center transition ' +
-    (filtroPosicao === 'todos' ? 'bg-white text-slate-900 shadow' : 'text-slate-600');
-
-  mobDireita.className = 'py-1.5 px-2 rounded-lg text-xs font-bold text-center flex items-center justify-center gap-1 transition ' +
-    (filtroPosicao === 'direita' ? 'bg-blue-600 text-white shadow' : 'text-blue-700');
-
-  mobEsquerda.className = 'py-1.5 px-2 rounded-lg text-xs font-bold text-center flex items-center justify-center gap-1 transition ' +
-    (filtroPosicao === 'esquerda' ? 'bg-red-600 text-white shadow' : 'text-red-700');
-}
-
 function obterPrestadoresAprovados() {
   return prestadores.filter((item) => item.status !== 'pendente');
 }
 
 function obterPrestadoresFiltrados() {
   return obterPrestadoresAprovados().filter((item) => {
-    const matchPosicao = filtroPosicao === 'todos' || item.posicao === filtroPosicao;
     const matchServico = filtroTipoServico === 'todos' || item.tipoServico === filtroTipoServico;
-    const textoItem = `${item.nome} ${item.tipoServico} ${item.servicos} ${item.endereco}`.toLowerCase();
+    const textoItem = `${item.nome} ${item.tipoServico} ${item.servicos} ${item.endereco} ${item.instagram || ''}`.toLowerCase();
     const matchBusca = !termoBusca || textoItem.includes(termoBusca);
-    return matchPosicao && matchServico && matchBusca;
+    return matchServico && matchBusca;
   });
 }
 
@@ -415,18 +378,12 @@ function atualizarContadores() {
   const aprovados = obterPrestadoresAprovados();
   const pendentes = prestadores.filter((p) => p.status === 'pendente');
   const total = aprovados.length;
-  const totalDireita = aprovados.filter((p) => p.posicao === 'direita').length;
-  const totalEsquerda = aprovados.filter((p) => p.posicao === 'esquerda').length;
 
-  document.getElementById('countTodosTop').textContent = total;
-  document.getElementById('countDireitaTop').textContent = totalDireita;
-  document.getElementById('countEsquerdaTop').textContent = totalEsquerda;
+  const elTop = document.getElementById('countTodosTop');
+  if (elTop) elTop.textContent = total;
 
-  document.getElementById('countTodosMob').textContent = total;
-  document.getElementById('countDireitaMob').textContent = totalDireita;
-  document.getElementById('countEsquerdaMob').textContent = totalEsquerda;
-
-  document.getElementById('adminTotalCount').textContent = total;
+  const elAdminTotal = document.getElementById('adminTotalCount');
+  if (elAdminTotal) elAdminTotal.textContent = total;
 
   const badgePendentesAdmin = document.getElementById('adminPendentesCount');
   if (badgePendentesAdmin) {
@@ -479,6 +436,21 @@ function formatarTelefoneExibicao(numero) {
   return numero;
 }
 
+function formatarLinkInstagram(ig) {
+  if (!ig) return '';
+  let limpo = String(ig).trim();
+  if (!limpo) return '';
+  if (limpo.startsWith('http://') || limpo.startsWith('https://')) {
+    return limpo;
+  }
+  limpo = limpo
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+    .replace(/^@/, '')
+    .replace(/\/+$/, '')
+    .trim();
+  return limpo ? `https://www.instagram.com/${limpo}` : '';
+}
+
 function renderMarkers(lista) {
   markersLayer.clearLayers();
   markersById = {};
@@ -488,22 +460,18 @@ function renderMarkers(lista) {
     const lng = parseFloat(item.lng);
     if (isNaN(lat) || isNaN(lng)) return;
 
-    const isEsquerda = item.posicao === 'esquerda';
-    const headerBg = isEsquerda
-      ? 'bg-gradient-to-r from-red-600 to-red-700'
-      : 'bg-gradient-to-r from-blue-600 to-blue-700';
-    const badgeTexto = isEsquerda ? 'ESQUERDA • VERMELHO' : 'DIREITA • AZUL';
+    const temZap = Boolean(String(item.whatsapp || '').replace(/\D/g, ''));
     const linkZap = formatarLinkWhatsapp(item.whatsapp, item.nome);
+    const linkIg = formatarLinkInstagram(item.instagram);
     const linkGoogleMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.endereco || `${lat},${lng}`)}`;
 
     const popupHtml = `
       <div class="font-sans text-slate-800">
-        <div class="${headerBg} text-white p-3.5">
+        <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3.5">
           <span class="inline-block text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/25 mb-1">
-            ${badgeTexto}
+            ${escapeHtml(item.tipoServico)}
           </span>
           <h3 class="font-bold text-base leading-snug">${escapeHtml(item.nome)}</h3>
-          <p class="text-xs text-white/90 font-medium mt-0.5">${escapeHtml(item.tipoServico)}</p>
         </div>
         <div class="p-3.5 space-y-2.5 bg-white">
           <div>
@@ -514,7 +482,10 @@ function renderMarkers(lista) {
             <p class="text-[11px] font-bold uppercase text-slate-400">Endereço Comercial</p>
             <p class="text-xs text-slate-600 mt-0.5">${escapeHtml(item.endereco)}</p>
           </div>
-          <div class="pt-1 flex gap-2">
+          <div class="pt-1 flex flex-wrap gap-1.5">
+            ${
+              temZap
+                ? `
             <a
               href="${linkZap}"
               target="_blank"
@@ -524,6 +495,23 @@ function renderMarkers(lista) {
             >
               <span>WhatsApp</span>
             </a>
+            `
+                : ''
+            }
+            ${
+              linkIg
+                ? `
+            <a
+              href="${linkIg}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex-1 py-2 px-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 !text-white font-bold text-xs rounded-xl text-center flex items-center justify-center gap-1.5 shadow-sm no-underline transition"
+            >
+              <span>Instagram</span>
+            </a>
+            `
+                : ''
+            }
             <a
               href="${linkGoogleMaps}"
               target="_blank"
@@ -539,7 +527,7 @@ function renderMarkers(lista) {
     `;
 
     const marker = L.marker([lat, lng], {
-      icon: criarIconePino(item.posicao)
+      icon: criarIconePino('padrao')
     }).bindPopup(popupHtml);
 
     marker.on('click', () => {
@@ -563,7 +551,7 @@ function renderSidebarList(lista) {
           <i data-lucide="map-pin-off" class="w-6 h-6"></i>
         </div>
         <h3 class="font-bold text-slate-700 text-sm">Nenhum prestador encontrado</h3>
-        <p class="text-xs text-slate-500 mt-1">Tente alterar o filtro de cor (Direita/Esquerda) ou limpar a busca.</p>
+        <p class="text-xs text-slate-500 mt-1">Tente selecionar outra categoria ou limpar a busca.</p>
       </div>
     `;
     return;
@@ -571,14 +559,9 @@ function renderSidebarList(lista) {
 
   container.innerHTML = lista
     .map((item) => {
-      const isEsquerda = item.posicao === 'esquerda';
-      const borderLeftColor = isEsquerda ? 'border-l-red-600' : 'border-l-blue-600';
-      const badgeClass = isEsquerda
-        ? 'bg-red-100 text-red-800 border-red-200'
-        : 'bg-blue-100 text-blue-800 border-blue-200';
-      const dotClass = isEsquerda ? 'bg-red-600' : 'bg-blue-600';
-      const labelPosicao = isEsquerda ? 'Esquerda • Vermelho' : 'Direita • Azul';
+      const temZap = Boolean(String(item.whatsapp || '').replace(/\D/g, ''));
       const linkZap = formatarLinkWhatsapp(item.whatsapp, item.nome);
+      const linkIg = formatarLinkInstagram(item.instagram);
       const foneFormatado = formatarTelefoneExibicao(item.whatsapp);
       const temMapa = !item.semEndereco && !isNaN(parseFloat(item.lat)) && !isNaN(parseFloat(item.lng));
       const textoEndereco = item.endereco && item.endereco.trim()
@@ -588,14 +571,11 @@ function renderSidebarList(lista) {
       return `
         <article
           id="card-${item.id}"
-          class="provider-card bg-white rounded-2xl border border-slate-200 border-l-4 ${borderLeftColor} p-3.5 shadow-sm hover:shadow-md"
+          class="provider-card bg-white rounded-2xl border border-slate-200 border-l-4 border-l-blue-600 p-3.5 shadow-sm hover:shadow-md"
         >
           <div class="flex items-start justify-between gap-2 mb-1.5">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${badgeClass}">
-              <span class="w-2 h-2 rounded-full ${dotClass}"></span>
-              ${labelPosicao}
-            </span>
-            <span class="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg truncate max-w-[170px]">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+              <i data-lucide="briefcase" class="w-3 h-3 text-blue-600"></i>
               ${escapeHtml(item.tipoServico)}
             </span>
           </div>
@@ -613,7 +593,7 @@ function renderSidebarList(lista) {
             <span class="leading-tight">${escapeHtml(textoEndereco)}</span>
           </div>
 
-          <div class="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
+          <div class="flex flex-wrap items-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
             ${
               temMapa
                 ? `
@@ -622,12 +602,15 @@ function renderSidebarList(lista) {
               class="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
             >
               <i data-lucide="navigation" class="w-3.5 h-3.5 text-slate-600"></i>
-              <span>Ver no Mapa</span>
+              <span>Mapa</span>
             </button>
             `
                 : ''
             }
 
+            ${
+              temZap
+                ? `
             <a
               href="${linkZap}"
               target="_blank"
@@ -639,6 +622,26 @@ function renderSidebarList(lista) {
               <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
               <span>WhatsApp</span>
             </a>
+            `
+                : ''
+            }
+
+            ${
+              linkIg
+                ? `
+            <a
+              href="${linkIg}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex-1 py-2 px-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm shadow-pink-600/20 transition"
+              title="Abrir Instagram"
+            >
+              <i data-lucide="instagram" class="w-3.5 h-3.5"></i>
+              <span>Instagram</span>
+            </a>
+            `
+                : ''
+            }
           </div>
         </article>
       `;
@@ -951,10 +954,10 @@ async function saveProvider(e) {
   }
 
   const id = document.getElementById('providerId').value;
-  const posicao = document.querySelector('input[name="posicao"]:checked').value;
   const nome = document.getElementById('inputNome').value.trim();
   const tipoServico = document.getElementById('inputTipoServico').value.trim();
   const whatsapp = document.getElementById('inputWhatsapp').value.trim();
+  const instagram = (document.getElementById('inputInstagram')?.value || '').trim();
   const servicos = document.getElementById('inputServicos').value.trim();
   const chkSemEnd = document.getElementById('inputSemEndereco')?.checked || false;
   const endereco = chkSemEnd ? '' : document.getElementById('inputEndereco').value.trim();
@@ -969,8 +972,8 @@ async function saveProvider(e) {
     servicos,
     endereco,
     semEndereco: !temCoordenadas && !endereco,
-    posicao,
     whatsapp,
+    instagram,
     lat: temCoordenadas ? rawLat : null,
     lng: temCoordenadas ? rawLng : null,
     status: 'aprovado',
@@ -1021,15 +1024,15 @@ function editarPrestador(id) {
   document.getElementById('inputNome').value = item.nome;
   document.getElementById('inputTipoServico').value = item.tipoServico;
   document.getElementById('inputWhatsapp').value = formatarTelefoneExibicao(item.whatsapp);
+  if (document.getElementById('inputInstagram')) {
+    document.getElementById('inputInstagram').value = item.instagram || '';
+  }
   document.getElementById('inputServicos').value = item.servicos;
 
   toggleSemEndereco(isSemEnd);
   document.getElementById('inputEndereco').value = item.endereco || '';
   document.getElementById('inputLat').value = temCoords ? item.lat : '';
   document.getElementById('inputLng').value = temCoords ? item.lng : '';
-
-  const radio = document.querySelector(`input[name="posicao"][value="${item.posicao}"]`);
-  if (radio) radio.checked = true;
 
   document.getElementById('formTitle').innerHTML = `
     <i data-lucide="edit-3" class="w-4 h-4 text-amber-600"></i>
@@ -1198,25 +1201,21 @@ function renderAdminList() {
     } else {
       containerPendentes.innerHTML = pendentes
         .map((item) => {
-          const isEsquerda = item.posicao === 'esquerda';
-          const badgeCor = isEsquerda
-            ? 'bg-red-100 text-red-800 border-red-200'
-            : 'bg-blue-100 text-blue-800 border-blue-200';
-          const labelCor = isEsquerda ? 'Esquerda • Vermelho' : 'Direita • Azul';
           const temCoords = !isNaN(parseFloat(item.lat)) && !isNaN(parseFloat(item.lng));
           const infoEnd = item.endereco && item.endereco.trim()
             ? item.endereco
             : 'Sem endereço fixo (Apenas lista)';
+          const igInfo = item.instagram ? ` • IG: ${item.instagram}` : '';
 
           return `
             <div class="p-3 bg-white rounded-xl border-2 border-amber-300 shadow-sm space-y-2">
               <div class="flex items-start justify-between gap-2">
                 <div>
-                  <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeCor} mb-1">
-                    ${labelCor}
+                  <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-800 border-blue-200 mb-1">
+                    ${escapeHtml(item.tipoServico)}
                   </span>
                   <h4 class="font-bold text-xs sm:text-sm text-slate-900">${escapeHtml(item.nome)}</h4>
-                  <p class="text-[11px] font-semibold text-slate-600">${escapeHtml(item.tipoServico)} • ${escapeHtml(formatarTelefoneExibicao(item.whatsapp))}</p>
+                  <p class="text-[11px] font-semibold text-slate-600">${escapeHtml(formatarTelefoneExibicao(item.whatsapp))}${escapeHtml(igInfo)}</p>
                 </div>
                 ${
                   temCoords
@@ -1265,21 +1264,19 @@ function renderAdminList() {
 
   container.innerHTML = aprovados
     .map((item) => {
-      const isEsquerda = item.posicao === 'esquerda';
-      const corBolinha = isEsquerda ? 'bg-red-600' : 'bg-blue-600';
-      const labelCor = isEsquerda ? 'Esquerda (Vermelho)' : 'Direita (Azul)';
       const infoEnd = item.endereco && item.endereco.trim()
         ? item.endereco
         : 'Sem endereço fixo (Apenas no menu lateral)';
+      const igInfo = item.instagram ? ` • ${item.instagram}` : '';
 
       return `
         <div class="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-2 hover:border-slate-300 transition">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-full ${corBolinha} shrink-0"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0"></span>
               <h4 class="font-bold text-xs text-slate-900 truncate">${escapeHtml(item.nome)}</h4>
             </div>
-            <p class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(item.tipoServico)} • ${labelCor}</p>
+            <p class="text-[11px] text-slate-500 truncate mt-0.5">${escapeHtml(item.tipoServico)}${escapeHtml(igInfo)}</p>
             <p class="text-[11px] text-slate-400 truncate">${escapeHtml(infoEnd)}</p>
           </div>
           <div class="flex items-center gap-1 shrink-0">
@@ -1645,27 +1642,24 @@ function renderGrayMarkers() {
             />
           </div>
 
-          <div class="pt-1">
-            <p class="text-[11px] font-bold text-slate-700 mb-1.5 text-center">Classificar este local como:</p>
-            <div class="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onclick="classificarPontoCinzaDireto(${idxOriginal}, 'direita')"
-                class="py-2 px-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1.5 transition"
-              >
-                <span class="w-2 h-2 rounded-full bg-white"></span>
-                <span>Direita (Azul)</span>
-              </button>
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Instagram (Opcional)</label>
+            <input
+              type="text"
+              id="ig-cinza-${idxOriginal}"
+              placeholder="@instagram"
+              class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+            />
+          </div>
 
-              <button
-                type="button"
-                onclick="classificarPontoCinzaDireto(${idxOriginal}, 'esquerda')"
-                class="py-2 px-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1.5 transition"
-              >
-                <span class="w-2 h-2 rounded-full bg-white"></span>
-                <span>Esquerda (Verm.)</span>
-              </button>
-            </div>
+          <div class="pt-1">
+            <button
+              type="button"
+              onclick="classificarPontoCinzaDireto(${idxOriginal})"
+              class="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1.5 transition"
+            >
+              <span>Adicionar ao Guia Agora</span>
+            </button>
           </div>
 
           <button
@@ -1687,7 +1681,7 @@ function renderGrayMarkers() {
   });
 }
 
-async function classificarPontoCinzaDireto(index, posicao) {
+async function classificarPontoCinzaDireto(index) {
   if (!isAdminAuthenticated()) {
     mostrarToast('Faça login no Painel ADM primeiro.');
     return;
@@ -1697,7 +1691,9 @@ async function classificarPontoCinzaDireto(index, posicao) {
   if (!item) return;
 
   const inputZapPopup = document.getElementById(`zap-cinza-${index}`);
+  const inputIgPopup = document.getElementById(`ig-cinza-${index}`);
   const whatsappFinal = inputZapPopup ? inputZapPopup.value.trim() : (item.whatsapp || '');
+  const instagramFinal = inputIgPopup ? inputIgPopup.value.trim() : '';
 
   const novoItem = {
     id: String(Date.now()),
@@ -1706,8 +1702,8 @@ async function classificarPontoCinzaDireto(index, posicao) {
     servicos: item.servicos || item.tipoServico,
     endereco: item.endereco,
     semEndereco: false,
-    posicao,
     whatsapp: whatsappFinal,
+    instagram: instagramFinal,
     lat: item.lat,
     lng: item.lng,
     status: 'aprovado',
@@ -1719,8 +1715,7 @@ async function classificarPontoCinzaDireto(index, posicao) {
   map.closePopup();
   renderAll();
 
-  const labelPos = posicao === 'esquerda' ? 'Esquerda (Vermelho)' : 'Direita (Azul)';
-  mostrarToast(`"${item.nome}" marcado como ${labelPos}!`);
+  mostrarToast(`"${item.nome}" adicionado ao Guia!`);
 
   if (db && isFirebaseConnected) {
     try {
@@ -1736,20 +1731,25 @@ function preencherFormularioComPontoCinza(index) {
   if (!item) return;
 
   const inputZapPopup = document.getElementById(`zap-cinza-${index}`);
+  const inputIgPopup = document.getElementById(`ig-cinza-${index}`);
   const whatsappFinal = inputZapPopup ? inputZapPopup.value.trim() : (item.whatsapp || '');
+  const instagramFinal = inputIgPopup ? inputIgPopup.value.trim() : '';
 
   resetAdminForm();
   toggleSemEndereco(false);
   document.getElementById('inputNome').value = item.nome || '';
   document.getElementById('inputTipoServico').value = item.tipoServico || '';
   document.getElementById('inputWhatsapp').value = formatarTelefoneExibicao(whatsappFinal);
+  if (document.getElementById('inputInstagram')) {
+    document.getElementById('inputInstagram').value = instagramFinal;
+  }
   document.getElementById('inputServicos').value = item.servicos || '';
   document.getElementById('inputEndereco').value = item.endereco || '';
   definirCoordenadasFormulario(item.lat, item.lng);
 
   map.closePopup();
   document.getElementById('adminForm').scrollIntoView({ behavior: 'smooth' });
-  mostrarToast('Dados preenchidos no formulário ADM! Escolha a cor e salve.');
+  mostrarToast('Dados preenchidos no formulário ADM!');
 }
 
 // ==========================================
@@ -1928,21 +1928,18 @@ function renderDashboardData() {
   const aprovados = obterPrestadoresAprovados();
   const pendentes = prestadores.filter((p) => p.status === 'pendente');
   const totalCad = aprovados.length;
-  const cadDireita = aprovados.filter((p) => p.posicao === 'direita').length;
-  const cadEsquerda = aprovados.filter((p) => p.posicao === 'esquerda').length;
-  const pctDir = totalCad > 0 ? Math.round((cadDireita / totalCad) * 100) : 0;
-  const pctEsq = totalCad > 0 ? Math.round((cadEsquerda / totalCad) * 100) : 0;
 
   const comMapa = aprovados.filter((p) => !p.semEndereco && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng))).length;
   const semMapa = totalCad - comMapa;
 
   document.getElementById('dashCadTotal').textContent = totalCad;
-  document.getElementById('dashCadDireita').textContent = cadDireita;
-  document.getElementById('dashPctDireita').textContent = `${pctDir}% dos aprovados`;
-  document.getElementById('dashCadEsquerda').textContent = cadEsquerda;
-  document.getElementById('dashPctEsquerda').textContent = `${pctEsq}% dos aprovados`;
+  if (document.getElementById('dashCadComMapa')) {
+    document.getElementById('dashCadComMapa').textContent = comMapa;
+  }
+  if (document.getElementById('dashCadSemMapa')) {
+    document.getElementById('dashCadSemMapa').textContent = semMapa;
+  }
   document.getElementById('dashCadPendentes').textContent = pendentes.length;
-  document.getElementById('dashCadMapaVsLista').textContent = `${comMapa} mapa / ${semMapa} lista`;
 
   // 3. Gráfico de Barras dos Últimos 14 Dias
   const dias14 = [];
@@ -1994,11 +1991,9 @@ function renderDashboardData() {
   aprovados.forEach((p) => {
     const cat = p.tipoServico || 'Outros';
     if (!mapaCategorias[cat]) {
-      mapaCategorias[cat] = { total: 0, direita: 0, esquerda: 0 };
+      mapaCategorias[cat] = { total: 0 };
     }
     mapaCategorias[cat].total += 1;
-    if (p.posicao === 'esquerda') mapaCategorias[cat].esquerda += 1;
-    else mapaCategorias[cat].direita += 1;
   });
 
   const listaCatOrdenada = Object.entries(mapaCategorias).sort((a, b) => b[1].total - a[1].total);
@@ -2011,11 +2006,7 @@ function renderDashboardData() {
         return `
           <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs">
             <span class="font-bold text-slate-800 truncate">${escapeHtml(nomeCat)}</span>
-            <div class="flex items-center gap-1.5 shrink-0">
-              <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[11px]">${info.direita} Azul</span>
-              <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-bold text-[11px]">${info.esquerda} Verm.</span>
-              <span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 font-extrabold text-[11px]">Total: ${info.total}</span>
-            </div>
+            <span class="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-extrabold text-[11px] shrink-0">${info.total} ${info.total === 1 ? 'cadastro' : 'cadastros'}</span>
           </div>
         `;
       })

@@ -38,7 +38,7 @@
         <i data-lucide="menu" class="w-5 h-5"></i>
       </button>
       <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-slate-700 to-red-600 flex items-center justify-center shadow-inner">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-emerald-600 flex items-center justify-center shadow-inner">
           <i data-lucide="map-pin" class="w-5 h-5 text-white"></i>
         </div>
         <div>
@@ -53,22 +53,11 @@
       </div>
     </div>
 
-    <!-- CENTER FILTER PILLS (DESKTOP) -->
-    <div class="hidden md:flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 gap-1">
-      <button onclick="setFilterPosicao('todos')" id="topFilterTodos" class="filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 bg-white text-slate-900 shadow">
-        <span>Todos</span>
-        <span id="countTodosTop" class="px-1.5 py-0.2 rounded-full text-[11px] bg-slate-200 text-slate-800">0</span>
-      </button>
-      <button onclick="setFilterPosicao('direita')" id="topFilterDireita" class="filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-blue-300 hover:bg-slate-700/60">
-        <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block ring-2 ring-blue-400/40"></span>
-        <span>Direita (Azul)</span>
-        <span id="countDireitaTop" class="px-1.5 py-0.2 rounded-full text-[11px] bg-blue-950 text-blue-300 border border-blue-800">0</span>
-      </button>
-      <button onclick="setFilterPosicao('esquerda')" id="topFilterEsquerda" class="filter-btn-top px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-red-300 hover:bg-slate-700/60">
-        <span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block ring-2 ring-red-400/40"></span>
-        <span>Esquerda (Vermelho)</span>
-        <span id="countEsquerdaTop" class="px-1.5 py-0.2 rounded-full text-[11px] bg-red-950 text-red-300 border border-red-800">0</span>
-      </button>
+    <!-- CENTER COUNTER (DESKTOP) -->
+    <div class="hidden md:flex items-center bg-slate-800/90 px-4 py-1.5 rounded-xl border border-slate-700/80 gap-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span>
+      <span class="text-xs font-bold text-slate-200">Estabelecimentos &amp; Prestadores</span>
+      <span id="countTodosTop" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-white text-slate-900">0</span>
     </div>
 
     <!-- RIGHT ACTIONS: MODE SWITCH -->
@@ -106,21 +95,6 @@
           </h2>
           <button id="btnCloseSidebarMobile" class="lg:hidden text-slate-500 hover:text-slate-800 p-1 rounded-lg">
             <i data-lucide="x" class="w-5 h-5"></i>
-          </button>
-        </div>
-
-        <!-- Mobile Filter Pills -->
-        <div class="grid grid-cols-3 gap-1.5 md:hidden bg-slate-200/80 p-1 rounded-xl">
-          <button onclick="setFilterPosicao('todos')" id="mobFilterTodos" class="py-1.5 px-2 rounded-lg text-xs font-bold bg-white text-slate-900 shadow text-center">
-            Todos (<span id="countTodosMob">0</span>)
-          </button>
-          <button onclick="setFilterPosicao('direita')" id="mobFilterDireita" class="py-1.5 px-2 rounded-lg text-xs font-bold text-blue-700 text-center flex items-center justify-center gap-1">
-            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-            Azul (<span id="countDireitaMob">0</span>)
-          </button>
-          <button onclick="setFilterPosicao('esquerda')" id="mobFilterEsquerda" class="py-1.5 px-2 rounded-lg text-xs font-bold text-red-700 text-center flex items-center justify-center gap-1">
-            <span class="w-2 h-2 rounded-full bg-red-600"></span>
-            Verm. (<span id="countEsquerdaMob">0</span>)
           </button>
         </div>
 
@@ -165,14 +139,9 @@
 
       <!-- Footer Legend -->
       <div class="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-3">
-          <span class="flex items-center gap-1.5 font-medium text-slate-700">
-            <span class="w-3 h-3 rounded-full bg-blue-600 inline-block"></span> Direita (Azul)
-          </span>
-          <span class="flex items-center gap-1.5 font-medium text-slate-700">
-            <span class="w-3 h-3 rounded-full bg-red-600 inline-block"></span> Esquerda (Vermelho)
-          </span>
-        </div>
+        <span class="flex items-center gap-1.5 font-medium text-slate-700">
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span> Juazeiro-BA &amp; Petrolina-PE
+        </span>
         <span id="lblResultCount" class="font-semibold text-slate-700">0 locais</span>
       </div>
     </aside>
@@ -298,7 +267,7 @@
               <span class="w-3.5 h-3.5 rounded-full bg-slate-400 border-2 border-white inline-block shrink-0"></span>
               <div>
                 <h3 class="font-bold text-xs sm:text-sm leading-tight">Comércios e Restaurantes Locais (Cinza)</h3>
-                <p class="text-[11px] text-slate-400">Clique em qualquer ponto cinza no mapa para marcar Direita ou Esquerda</p>
+                <p class="text-[11px] text-slate-400">Clique em qualquer ponto cinza no mapa para adicionar ao Guia</p>
               </div>
             </div>
             <span id="badgeCountCinza" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 text-slate-200 border border-slate-700 shrink-0">
@@ -353,37 +322,7 @@
 
           <input type="hidden" id="providerId" value="" />
 
-          <!-- 1. POSICIONAMENTO (AZUL DIREITA / VERMELHO ESQUERDA) -->
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              1. Cor da Marcação no Mapa e Lista *
-            </label>
-            <div class="grid grid-cols-2 gap-2.5">
-              <label class="cursor-pointer">
-                <input type="radio" name="posicao" value="direita" class="peer sr-only" checked />
-                <div class="p-3 rounded-xl border-2 border-slate-200 bg-white peer-checked:border-blue-600 peer-checked:bg-blue-50/70 transition flex items-center gap-2.5">
-                  <span class="w-4 h-4 rounded-full bg-blue-600 shrink-0 ring-4 ring-blue-600/20"></span>
-                  <div>
-                    <div class="font-bold text-xs text-blue-950">DIREITA</div>
-                    <div class="text-[11px] text-blue-700 font-medium">Pino Azul</div>
-                  </div>
-                </div>
-              </label>
-
-              <label class="cursor-pointer">
-                <input type="radio" name="posicao" value="esquerda" class="peer sr-only" />
-                <div class="p-3 rounded-xl border-2 border-slate-200 bg-white peer-checked:border-red-600 peer-checked:bg-red-50/70 transition flex items-center gap-2.5">
-                  <span class="w-4 h-4 rounded-full bg-red-600 shrink-0 ring-4 ring-red-600/20"></span>
-                  <div>
-                    <div class="font-bold text-xs text-red-950">ESQUERDA</div>
-                    <div class="text-[11px] text-red-700 font-medium">Pino Vermelho</div>
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- 2. NOME COMERCIAL / PRESTADOR -->
+          <!-- 1. NOME COMERCIAL / PRESTADOR -->
           <div>
             <label for="inputNome" class="block text-xs font-bold text-slate-700 mb-1">
               Nome do Estabelecimento ou Prestador *
@@ -397,34 +336,35 @@
             />
           </div>
 
-          <!-- 3. TIPO DE SERVIÇO E WHATSAPP -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label for="inputTipoServico" class="block text-xs font-bold text-slate-700 mb-1">
-                Tipo de Serviço / Categoria *
-              </label>
-              <input
-                type="text"
-                id="inputTipoServico"
-                list="listaCategoriasSugeridas"
-                required
-                placeholder="Ex: Advocacia, Mecânica..."
-                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <datalist id="listaCategoriasSugeridas">
-                <option value="Advocacia e Jurídico"></option>
-                <option value="Alimentação e Restaurantes"></option>
-                <option value="Mecânica e Automotivo"></option>
-                <option value="Saúde, Médicos e Dentistas"></option>
-                <option value="Construção, Reforma e Elétrica"></option>
-                <option value="Contabilidade e Consultoria"></option>
-                <option value="Tecnologia e Informática"></option>
-                <option value="Comércio e Lojas"></option>
-                <option value="Beleza e Barbearia"></option>
-                <option value="Educação e Cursos"></option>
-              </datalist>
-            </div>
+          <!-- 2. TIPO DE SERVIÇO -->
+          <div>
+            <label for="inputTipoServico" class="block text-xs font-bold text-slate-700 mb-1">
+              Tipo de Serviço / Categoria *
+            </label>
+            <input
+              type="text"
+              id="inputTipoServico"
+              list="listaCategoriasSugeridas"
+              required
+              placeholder="Ex: Advocacia, Mecânica, Restaurante..."
+              class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <datalist id="listaCategoriasSugeridas">
+              <option value="Advocacia e Jurídico"></option>
+              <option value="Alimentação e Restaurantes"></option>
+              <option value="Mecânica e Automotivo"></option>
+              <option value="Saúde, Médicos e Dentistas"></option>
+              <option value="Construção, Reforma e Elétrica"></option>
+              <option value="Contabilidade e Consultoria"></option>
+              <option value="Tecnologia e Informática"></option>
+              <option value="Comércio e Lojas"></option>
+              <option value="Beleza e Barbearia"></option>
+              <option value="Educação e Cursos"></option>
+            </datalist>
+          </div>
 
+          <!-- 3. WHATSAPP E INSTAGRAM -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label for="inputWhatsapp" class="block text-xs font-bold text-slate-700 mb-1">
                 WhatsApp (com DDD)
@@ -432,8 +372,20 @@
               <input
                 type="text"
                 id="inputWhatsapp"
-                placeholder="Ex: (87) 99999-9999 ou (74) 99999-9999"
+                placeholder="Ex: (87) 99999-9999"
                 class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label for="inputInstagram" class="block text-xs font-bold text-slate-700 mb-1">
+                Instagram (Opcional)
+              </label>
+              <input
+                type="text"
+                id="inputInstagram"
+                placeholder="Ex: @suaempresa ou link"
+                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
               />
             </div>
           </div>
@@ -521,7 +473,7 @@
             </div>
 
             <p id="avisoSemEndereco" class="hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5 font-medium">
-              Este prestador aparecerá na <strong>lista lateral</strong> com botão do WhatsApp e filtro de cor, sem pino fixo no mapa.
+              Este prestador aparecerá na <strong>lista lateral</strong> com botões de WhatsApp e Instagram, sem pino fixo no mapa.
             </p>
           </div>
 
@@ -754,7 +706,7 @@
             <span>Quantidade de Cadastros no Guia</span>
           </h3>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
               <p class="text-xs font-bold text-slate-500">Total Aprovados</p>
               <p id="dashCadTotal" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</p>
@@ -762,33 +714,21 @@
             </div>
 
             <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-200 shadow-sm">
-              <p class="text-xs font-bold text-blue-800 flex items-center gap-1.5">
-                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                Direita (Azul)
-              </p>
-              <p id="dashCadDireita" class="text-2xl sm:text-3xl font-extrabold text-blue-600 mt-1">0</p>
-              <p id="dashPctDireita" class="text-[11px] text-blue-700 font-semibold mt-1">0% do total</p>
+              <p class="text-xs font-bold text-blue-800">Com Endereço no Mapa</p>
+              <p id="dashCadComMapa" class="text-2xl sm:text-3xl font-extrabold text-blue-600 mt-1">0</p>
+              <p class="text-[11px] text-blue-700 font-semibold mt-1">Pino fixo no mapa</p>
             </div>
 
-            <div class="bg-red-50/60 p-4 rounded-2xl border border-red-200 shadow-sm">
-              <p class="text-xs font-bold text-red-800 flex items-center gap-1.5">
-                <span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                Esquerda (Verm.)
-              </p>
-              <p id="dashCadEsquerda" class="text-2xl sm:text-3xl font-extrabold text-red-600 mt-1">0</p>
-              <p id="dashPctEsquerda" class="text-[11px] text-red-700 font-semibold mt-1">0% do total</p>
+            <div class="bg-slate-100 p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <p class="text-xs font-bold text-slate-700">Sem Endereço Fixo</p>
+              <p id="dashCadSemMapa" class="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1">0</p>
+              <p class="text-[11px] text-slate-500 font-semibold mt-1">Apenas no menu lateral</p>
             </div>
 
             <div class="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-sm">
               <p class="text-xs font-bold text-amber-900">Pendentes</p>
               <p id="dashCadPendentes" class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1">0</p>
               <p class="text-[11px] text-amber-800 mt-1">Aguardando aprovação</p>
-            </div>
-
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
-              <p class="text-xs font-bold text-slate-500">Com Mapa vs Sem</p>
-              <p id="dashCadMapaVsLista" class="text-lg sm:text-xl font-extrabold text-slate-800 mt-2">0 mapa / 0 lista</p>
-              <p class="text-[11px] text-slate-400 mt-1">Fixos vs Sem endereço</p>
             </div>
           </div>
         </div>

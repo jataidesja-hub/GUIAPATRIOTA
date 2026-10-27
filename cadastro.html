@@ -83,37 +83,7 @@
         </span>
       </div>
 
-      <!-- 1. COR DA MARCAÇÃO -->
-      <div>
-        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-          1. Cor da Marcação no Mapa e Lista *
-        </label>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="cursor-pointer">
-            <input type="radio" name="posicao" value="direita" class="peer sr-only" checked />
-            <div class="p-3.5 rounded-2xl border-2 border-slate-200 bg-white peer-checked:border-blue-600 peer-checked:bg-blue-50/70 transition flex items-center gap-3">
-              <span class="w-4 h-4 rounded-full bg-blue-600 shrink-0 ring-4 ring-blue-600/20"></span>
-              <div>
-                <div class="font-bold text-xs sm:text-sm text-blue-950">DIREITA</div>
-                <div class="text-xs text-blue-700 font-medium">Pino Azul</div>
-              </div>
-            </div>
-          </label>
-
-          <label class="cursor-pointer">
-            <input type="radio" name="posicao" value="esquerda" class="peer sr-only" />
-            <div class="p-3.5 rounded-2xl border-2 border-slate-200 bg-white peer-checked:border-red-600 peer-checked:bg-red-50/70 transition flex items-center gap-3">
-              <span class="w-4 h-4 rounded-full bg-red-600 shrink-0 ring-4 ring-red-600/20"></span>
-              <div>
-                <div class="font-bold text-xs sm:text-sm text-red-950">ESQUERDA</div>
-                <div class="text-xs text-red-700 font-medium">Pino Vermelho</div>
-              </div>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      <!-- 2. NOME DO ESTABELECIMENTO OU PRESTADOR -->
+      <!-- 1. NOME DO ESTABELECIMENTO OU PRESTADOR -->
       <div>
         <label for="cadNome" class="block text-xs font-bold text-slate-700 mb-1">
           Nome do Estabelecimento ou Prestador *
@@ -127,34 +97,35 @@
         />
       </div>
 
-      <!-- 3. TIPO DE SERVIÇO E WHATSAPP -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label for="cadTipoServico" class="block text-xs font-bold text-slate-700 mb-1">
-            Tipo de Serviço / Categoria *
-          </label>
-          <input
-            type="text"
-            id="cadTipoServico"
-            list="listaCategorias"
-            required
-            placeholder="Ex: Advocacia, Mecânica..."
-            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <datalist id="listaCategorias">
-            <option value="Advocacia e Jurídico"></option>
-            <option value="Alimentação e Restaurantes"></option>
-            <option value="Mecânica e Automotivo"></option>
-            <option value="Saúde, Médicos e Dentistas"></option>
-            <option value="Construção, Reforma e Elétrica"></option>
-            <option value="Contabilidade e Consultoria"></option>
-            <option value="Tecnologia e Informática"></option>
-            <option value="Comércio e Lojas"></option>
-            <option value="Beleza e Barbearia"></option>
-            <option value="Educação e Cursos"></option>
-          </datalist>
-        </div>
+      <!-- 2. TIPO DE SERVIÇO -->
+      <div>
+        <label for="cadTipoServico" class="block text-xs font-bold text-slate-700 mb-1">
+          Tipo de Serviço / Categoria *
+        </label>
+        <input
+          type="text"
+          id="cadTipoServico"
+          list="listaCategorias"
+          required
+          placeholder="Ex: Advocacia, Mecânica, Restaurante..."
+          class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <datalist id="listaCategorias">
+          <option value="Advocacia e Jurídico"></option>
+          <option value="Alimentação e Restaurantes"></option>
+          <option value="Mecânica e Automotivo"></option>
+          <option value="Saúde, Médicos e Dentistas"></option>
+          <option value="Construção, Reforma e Elétrica"></option>
+          <option value="Contabilidade e Consultoria"></option>
+          <option value="Tecnologia e Informática"></option>
+          <option value="Comércio e Lojas"></option>
+          <option value="Beleza e Barbearia"></option>
+          <option value="Educação e Cursos"></option>
+        </datalist>
+      </div>
 
+      <!-- 3. WHATSAPP E INSTAGRAM -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label for="cadWhatsapp" class="block text-xs font-bold text-slate-700 mb-1">
             WhatsApp (com DDD) *
@@ -163,8 +134,20 @@
             type="text"
             id="cadWhatsapp"
             required
-            placeholder="Ex: (87) 99999-9999 ou (74) 99999-9999"
+            placeholder="Ex: (87) 99999-9999"
             class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label for="cadInstagram" class="block text-xs font-bold text-slate-700 mb-1">
+            Instagram (Opcional)
+          </label>
+          <input
+            type="text"
+            id="cadInstagram"
+            placeholder="Ex: @suaempresa ou link"
+            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
           />
         </div>
       </div>
@@ -458,10 +441,10 @@
       btn.disabled = true;
       btn.innerHTML = `<span>Enviando...</span>`;
 
-      const posicao = document.querySelector('input[name="posicao"]:checked').value;
       const nome = document.getElementById('cadNome').value.trim();
       const tipoServico = document.getElementById('cadTipoServico').value.trim();
       const whatsapp = document.getElementById('cadWhatsapp').value.trim();
+      const instagram = document.getElementById('cadInstagram').value.trim();
       const servicos = document.getElementById('cadServicos').value.trim();
       const semEnd = document.getElementById('cadSemEndereco').checked;
       const endereco = semEnd ? '' : document.getElementById('cadEndereco').value.trim();
@@ -476,8 +459,8 @@
         servicos,
         endereco,
         semEndereco: !temCoords && !endereco,
-        posicao,
         whatsapp,
+        instagram,
         lat: temCoords ? rawLat : null,
         lng: temCoords ? rawLng : null,
         status: 'pendente',
