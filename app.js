@@ -29,6 +29,7 @@ let isFirebaseConnected = false;
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
   lucide.createIcons();
+  initPwaInstaller();
   initMap();
   setupEventListeners();
   await carregarDadosIniciais();
@@ -2037,6 +2038,109 @@ function renderDashboardData() {
       })
       .join('');
   }
+}
+
+// ==========================================
+// INSTALADOR DO APP MOBILE (PWA - ANDROID & IPHONE)
+// ==========================================
+let deferredInstallPrompt = null;
+
+function isRunningStandalone() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
+  );
+}
+
+function isIosDevice() {
+  return /iphone|ipad|ipod/i.test(window.navigator.userAgent || '');
+}
+
+function initPwaInstaller() {
+  // Registra Service Worker para habilitar instalação nativa no Android / Chrome
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.warn('Service Worker aviso:', err);
+    });
+  }
+
+  const btnInstalar = document.getElementById('btnInstalarApp');
+  if (isRunningStandalone() && btnInstalar) {
+    btnInstalar.classList.add('hidden');
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    const btnNativo = document.getElementById('btnDispararPromptNativo');
+    if (btnNativo) {
+      btnNativo.classList.remove('hidden');
+    }
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    closeInstallAppModal();
+    if (btnInstalar) btnInstalar.classList.add('hidden');
+    mostrarToast('Aplicativo instalado com sucesso no seu aparelho!');
+  });
+}
+
+async function abrirInstaladorMobile() {
+  // Se estiver no Android/Chrome e o prompt nativo já estiver disponível, dispara direto ou abre o modal
+  if (deferredInstallPrompt && !isIosDevice()) {
+    try {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        deferredInstallPrompt = null;
+        return;
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  // Abre modal selecionando automaticamente a aba do sistema do usuário (iPhone ou Android)
+  selecionarAbaInstalador(isIosDevice() ? 'ios' : 'android');
+  document.getElementById('modalInstallApp').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function selecionarAbaInstalador(aba) {
+  const tabAndroid = document.getElementById('tabBtnAndroid');
+  const tabIos = document.getElementById('tabBtnIos');
+  const boxAndroid = document.getElementById('boxInstallAndroid');
+  const boxIos = document.getElementById('boxInstallIos');
+
+  if (aba === 'ios') {
+    tabIos.className = 'py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-900 shadow flex items-center justify-center gap-1.5 transition';
+    tabAndroid.className = 'py-2 px-3 rounded-xl text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5 transition';
+    boxIos.classList.remove('hidden');
+    boxAndroid.classList.add('hidden');
+  } else {
+    tabAndroid.className = 'py-2 px-3 rounded-xl text-xs font-bold bg-white text-slate-900 shadow flex items-center justify-center gap-1.5 transition';
+    tabIos.className = 'py-2 px-3 rounded-xl text-xs font-bold text-slate-600 flex items-center justify-center gap-1.5 transition';
+    boxAndroid.classList.remove('hidden');
+    boxIos.classList.add('hidden');
+  }
+}
+
+async function instalarNativoAndroid() {
+  if (!deferredInstallPrompt) {
+    mostrarToast('Siga os 3 passos abaixo no menu do seu navegador.');
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (outcome === 'accepted') {
+    deferredInstallPrompt = null;
+    closeInstallAppModal();
+  }
+}
+
+function closeInstallAppModal() {
+  document.getElementById('modalInstallApp').classList.add('hidden');
 }
 
 // ==========================================
