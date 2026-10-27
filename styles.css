@@ -182,3 +182,39 @@ body {
 .map-pick-cursor #map {
   cursor: crosshair !important;
 }
+
+/* Propaganda / Destaque Piscando no Topo */
+@keyframes promo-glow-blink {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7), inset 0 0 12px rgba(245, 158, 11, 0.25);
+    border-color: #f59e0b;
+    background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 50%, #fffbeb 100%);
+  }
+  50% {
+    box-shadow: 0 0 16px 3px rgba(234, 88, 12, 0.55), inset 0 0 18px rgba(245, 158, 11, 0.45);
+    border-color: #ea580c;
+    background: linear-gradient(90deg, #fef3c7 0%, #fde68a 50%, #fef3c7 100%);
+  }
+}
+
+@keyframes badge-flash {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    background-color: #dc2626;
+  }
+  50% {
+    opacity: 0.78;
+    transform: scale(1.06);
+    background-color: #ea580c;
+  }
+}
+
+.promo-blink-card {
+  animation: promo-glow-blink 1.4s infinite ease-in-out;
+  border-width: 2px;
+}
+
+.promo-blink-badge {
+  animation: badge-flash 0.9s infinite ease-in-out;
+}

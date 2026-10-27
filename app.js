@@ -3,8 +3,13 @@
 // ==========================================
 const STORAGE_KEY = 'guia_patriota_dados_v2';
 const FIREBASE_CONFIG_KEY = 'guia_patriota_fb_config';
+const MASTER_ADMIN_EMAIL = 'jataides.ja@gmail.com';
+const PROPAGANDAS_LOCAL_KEY = 'guia_patriota_propagandas_v1';
 
 let prestadores = [];
+let propagandas = [];
+let unsubscribePropagandas = null;
+let indicePropagandaRotacao = 0;
 let filtroPosicao = 'todos'; // 'todos' | 'direita' | 'esquerda'
 let filtroTipoServico = 'todos';
 let termoBusca = '';
@@ -34,12 +39,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   await carregarDadosIniciais();
   await registrarAcessoVisita();
+  iniciarMonitoramentoPropagandas();
   renderAll();
   fitAllMarkers();
 
   // Verificar se URL possui #admin (aguarda estado do Firebase Auth restaurar sessão)
   if (typeof firebase !== 'undefined' && firebase.auth) {
     firebase.auth().onAuthStateChanged((user) => {
+      aplicarPermissoesRoleAdmin();
       if (window.location.hash === '#admin' && user) {
         switchView('admin');
       }
@@ -198,6 +205,27 @@ async function inicializarFirebase() {
     if (unsubscribeFirestore) {
       unsubscribeFirestore();
     }
+    if (unsubscribePropagandas) {
+      unsubscribePropagandas();
+    }
+
+    // Listener em tempo real de propagandas / destaques no topo
+    unsubscribePropagandas = db.collection('propagandas').onSnapshot(
+      (snapPromo) => {
+        const listaP = [];
+        snapPromo.forEach((doc) => {
+          listaP.push({ id: doc.id, ...doc.data() });
+        });
+        listaP.sort((a, b) => String(b.criadoEm || '').localeCompare(String(a.criadoEm || '')));
+        propagandas = listaP;
+        localStorage.setItem(PROPAGANDAS_LOCAL_KEY, JSON.stringify(propagandas));
+        renderPropagandaTopo();
+        renderSidebarList(obterPrestadoresFiltrados());
+        renderListaPropagandasMaster();
+        lucide.createIcons();
+      },
+      (err) => console.warn('Aviso propagandas:', err)
+    );
 
     return new Promise((resolve) => {
       let resolvedFirst = false;
@@ -370,6 +398,7 @@ function renderAll() {
   const filtrados = obterPrestadoresFiltrados();
   renderMarkers(filtrados);
   renderGrayMarkers();
+  renderPropagandaTopo();
   renderSidebarList(filtrados);
   renderAdminList();
   lucide.createIcons();
@@ -545,8 +574,74 @@ function renderSidebarList(lista) {
   const lblCount = document.getElementById('lblResultCount');
   lblCount.textContent = `${lista.length} ${lista.length === 1 ? 'prestador' : 'prestadores'}`;
 
+  const promosAtivas = obterPropagandasAtivasAgora();
+  const htmlPromosSidebar = promosAtivas
+    .map((promo) => {
+      const temZap = Boolean(String(promo.whatsapp || '').replace(/\D/g, ''));
+      const linkZap = formatarLinkWhatsapp(promo.whatsapp, promo.nome);
+      const linkIg = formatarLinkInstagram(promo.instagram);
+
+      return `
+        <article class="promo-blink-card rounded-2xl p-3.5 shadow-md space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="promo-blink-badge inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase text-white shadow">
+              🔥 DESTAQUE PATROCINADO
+            </span>
+            <span class="text-[11px] font-bold text-amber-900 bg-amber-200/70 px-2 py-0.5 rounded-lg truncate max-w-[150px]">
+              ${escapeHtml(promo.categoria || 'Destaque')}
+            </span>
+          </div>
+
+          <h3 class="font-extrabold text-slate-950 text-base leading-snug">
+            ${escapeHtml(promo.nome)}
+          </h3>
+
+          <p class="text-xs font-medium text-slate-800 leading-relaxed">
+            ${escapeHtml(promo.texto)}
+          </p>
+
+          <div class="flex flex-wrap items-center gap-2 pt-1.5">
+            ${
+              temZap
+                ? `
+            <a
+              href="${linkZap}"
+              target="_blank"
+              rel="noopener noreferrer"
+              onclick="registrarCliqueWhatsapp()"
+              class="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+            >
+              <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+              <span>WhatsApp</span>
+            </a>
+            `
+                : ''
+            }
+            ${
+              linkIg
+                ? `
+            <a
+              href="${linkIg}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex-1 py-2 px-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+            >
+              <i data-lucide="instagram" class="w-3.5 h-3.5"></i>
+              <span>Instagram</span>
+            </a>
+            `
+                : ''
+            }
+          </div>
+        </article>
+      `;
+    })
+    .join('');
+
   if (lista.length === 0) {
-    container.innerHTML = `
+    container.innerHTML =
+      htmlPromosSidebar +
+      `
       <div class="text-center py-12 px-4">
         <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
           <i data-lucide="map-pin-off" class="w-6 h-6"></i>
@@ -558,8 +653,10 @@ function renderSidebarList(lista) {
     return;
   }
 
-  container.innerHTML = lista
-    .map((item) => {
+  container.innerHTML =
+    htmlPromosSidebar +
+    lista
+      .map((item) => {
       const temZap = Boolean(String(item.whatsapp || '').replace(/\D/g, ''));
       const linkZap = formatarLinkWhatsapp(item.whatsapp, item.nome);
       const linkIg = formatarLinkInstagram(item.instagram);
@@ -698,14 +795,50 @@ function fitAllMarkers() {
 }
 
 // ==========================================
-// PAINEL ADMINISTRATIVO (TELA ADM - FIREBASE AUTH)
+// PAINEL ADMINISTRATIVO (TELA ADM - FIREBASE AUTH: MASTER vs ADM NORMAL)
 // ==========================================
 function isAdminAuthenticated() {
   return typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser !== null;
 }
 
+function isMasterAdmin() {
+  if (!isAdminAuthenticated()) return false;
+  const email = String(firebase.auth().currentUser.email || '').trim().toLowerCase();
+  return email === MASTER_ADMIN_EMAIL;
+}
+
+function aplicarPermissoesRoleAdmin() {
+  const master = isMasterAdmin();
+  const badgeMaster = document.getElementById('badgeMasterRole');
+  const btnPromo = document.getElementById('btnMasterPropaganda');
+  const btnDash = document.getElementById('btnMasterDashboard');
+  const btnCloud = document.getElementById('btnMasterCloudConfig');
+  const lblSub = document.getElementById('lblAdminRoleSubtitle');
+
+  if (badgeMaster) badgeMaster.classList.toggle('hidden', !master);
+  if (btnPromo) {
+    btnPromo.classList.toggle('hidden', !master);
+    btnPromo.classList.toggle('flex', master);
+  }
+  if (btnDash) {
+    btnDash.classList.toggle('hidden', !master);
+    btnDash.classList.toggle('flex', master);
+  }
+  if (btnCloud) {
+    btnCloud.classList.toggle('hidden', !master);
+    btnCloud.classList.toggle('flex', master);
+  }
+  if (lblSub && isAdminAuthenticated()) {
+    const emailAtual = firebase.auth().currentUser.email || '';
+    lblSub.textContent = master
+      ? `ADM Master (${emailAtual})`
+      : `ADM Padrão (${emailAtual})`;
+  }
+}
+
 function openAdminAccess() {
   if (isAdminAuthenticated()) {
+    aplicarPermissoesRoleAdmin();
     switchView('admin');
   } else {
     document.getElementById('modalAdminLogin').classList.remove('hidden');
@@ -732,9 +865,10 @@ async function handleAdminLogin(e) {
 
   try {
     await firebase.auth().signInWithEmailAndPassword(email, passInput);
+    aplicarPermissoesRoleAdmin();
     closeAdminLoginModal();
     switchView('admin');
-    mostrarToast('Autenticado com sucesso no Painel ADM!');
+    mostrarToast(isMasterAdmin() ? 'Bem-vindo, ADM Master!' : 'Autenticado no Painel ADM!');
   } catch (err) {
     console.error('Erro de autenticação:', err);
     errorEl.textContent = 'E-mail ou senha incorretos no Firebase Authentication.';
@@ -753,6 +887,8 @@ async function handleAdminLogout() {
   } catch (err) {
     console.error(err);
   }
+  closeAdminDashboard();
+  closeAdminPropagandaModal();
   switchView('public');
   mostrarToast('Sessão encerrada.');
 }
@@ -769,9 +905,10 @@ function switchView(mode) {
   const btnViewAdmin = document.getElementById('btnViewAdmin');
 
   if (mode === 'admin') {
+    aplicarPermissoesRoleAdmin();
     adminPanel.classList.remove('hidden');
     adminPanel.classList.add('flex');
-    badgeMode.textContent = 'Modo ADM';
+    badgeMode.textContent = isMasterAdmin() ? 'ADM MASTER' : 'Modo ADM';
     badgeMode.className = 'text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
     btnViewPublic.classList.remove('hidden');
     btnViewPublic.classList.add('flex');
@@ -1859,8 +1996,8 @@ async function registrarCliqueWhatsapp() {
 }
 
 async function openAdminDashboard() {
-  if (!isAdminAuthenticated()) {
-    openAdminAccess();
+  if (!isMasterAdmin()) {
+    mostrarToast('Acesso ao Dashboard restrito ao ADM Master.');
     return;
   }
 
@@ -2141,6 +2278,268 @@ async function instalarNativoAndroid() {
 
 function closeInstallAppModal() {
   document.getElementById('modalInstallApp').classList.add('hidden');
+}
+
+// ==========================================
+// SISTEMA DE PROPAGANDA / DESTAQUE NO TOPO PISCANDO (EXCLUSIVO MASTER)
+// ==========================================
+function iniciarMonitoramentoPropagandas() {
+  try {
+    const salvas = JSON.parse(localStorage.getItem(PROPAGANDAS_LOCAL_KEY) || '[]');
+    if (Array.isArray(salvas) && propagandas.length === 0) {
+      propagandas = salvas;
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+
+  // Verifica expiração e alterna propagandas a cada 7 segundos
+  setInterval(() => {
+    indicePropagandaRotacao++;
+    renderPropagandaTopo();
+  }, 7000);
+}
+
+function obterPropagandasAtivasAgora() {
+  const agora = Date.now();
+  return propagandas.filter((p) => {
+    if (p.ativa === false) return false;
+    const exp = new Date(p.expiraEm).getTime();
+    return !isNaN(exp) && exp > agora;
+  });
+}
+
+function formatarTempoRestante(expiraEmIso) {
+  const diff = new Date(expiraEmIso).getTime() - Date.now();
+  if (isNaN(diff) || diff <= 0) return 'Expirada';
+
+  const minTotal = Math.floor(diff / 60000);
+  const dias = Math.floor(minTotal / 1440);
+  const horas = Math.floor((minTotal % 1440) / 60);
+  const mins = minTotal % 60;
+
+  if (dias > 0) return `${dias}d ${horas}h restantes`;
+  if (horas > 0) return `${horas}h ${mins}min restantes`;
+  return `${Math.max(1, mins)} min restantes`;
+}
+
+function renderPropagandaTopo() {
+  const bar = document.getElementById('topPropagandaBar');
+  if (!bar) return;
+
+  const ativas = obterPropagandasAtivasAgora();
+  if (ativas.length === 0) {
+    bar.classList.add('hidden');
+    bar.innerHTML = '';
+    return;
+  }
+
+  const promo = ativas[indicePropagandaRotacao % ativas.length];
+  const temZap = Boolean(String(promo.whatsapp || '').replace(/\D/g, ''));
+  const linkZap = formatarLinkWhatsapp(promo.whatsapp, promo.nome);
+  const linkIg = formatarLinkInstagram(promo.instagram);
+
+  bar.classList.remove('hidden');
+  bar.innerHTML = `
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5 min-w-0 flex-1">
+        <span class="promo-blink-badge px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase text-white shrink-0 shadow">
+          🔥 DESTAQUE
+        </span>
+        <div class="min-w-0 flex-1 truncate">
+          <span class="font-extrabold text-xs sm:text-sm text-slate-950">${escapeHtml(promo.nome)}</span>
+          <span class="text-xs font-bold text-amber-950 mx-1.5">•</span>
+          <span class="text-xs font-semibold text-slate-900">${escapeHtml(promo.texto)}</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 shrink-0">
+        ${
+          temZap
+            ? `
+        <a
+          href="${linkZap}"
+          target="_blank"
+          rel="noopener noreferrer"
+          onclick="registrarCliqueWhatsapp()"
+          class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg shadow flex items-center gap-1 transition"
+        >
+          <span>WhatsApp</span>
+        </a>
+        `
+            : ''
+        }
+        ${
+          linkIg
+            ? `
+        <a
+          href="${linkIg}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-3 py-1 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-extrabold text-xs rounded-lg shadow flex items-center gap-1 transition"
+        >
+          <span>Instagram</span>
+        </a>
+        `
+            : ''
+        }
+      </div>
+    </div>
+  `;
+}
+
+function openAdminPropagandaModal() {
+  if (!isMasterAdmin()) {
+    mostrarToast('Acesso restrito ao ADM Master.');
+    return;
+  }
+
+  // Popula select de prestadores existentes para facilitar preenchimento
+  const select = document.getElementById('selectPrestadorParaPromo');
+  if (select) {
+    const aprovados = obterPrestadoresAprovados();
+    select.innerHTML = `<option value="">-- Selecionar um prestador já cadastrado (ou digite abaixo) --</option>`;
+    aprovados.forEach((p) => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.nome} (${p.tipoServico})`;
+      select.appendChild(opt);
+    });
+  }
+
+  renderListaPropagandasMaster();
+  document.getElementById('modalAdminPropaganda').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeAdminPropagandaModal() {
+  const modal = document.getElementById('modalAdminPropaganda');
+  if (modal) modal.classList.add('hidden');
+}
+
+function preencherPromoComPrestador(id) {
+  if (!id) return;
+  const item = prestadores.find((p) => String(p.id) === String(id));
+  if (!item) return;
+
+  document.getElementById('promoNome').value = item.nome || '';
+  document.getElementById('promoCategoria').value = item.tipoServico || '';
+  document.getElementById('promoTexto').value = item.servicos || '';
+  document.getElementById('promoWhatsapp').value = formatarTelefoneExibicao(item.whatsapp || '');
+  document.getElementById('promoInstagram').value = item.instagram || '';
+}
+
+async function salvarPropagandaMaster(e) {
+  e.preventDefault();
+  if (!isMasterAdmin()) {
+    mostrarToast('Apenas o ADM Master pode criar propagandas.');
+    return;
+  }
+
+  const nome = document.getElementById('promoNome').value.trim();
+  const categoria = document.getElementById('promoCategoria').value.trim();
+  const texto = document.getElementById('promoTexto').value.trim();
+  const whatsapp = document.getElementById('promoWhatsapp').value.trim();
+  const instagram = document.getElementById('promoInstagram').value.trim();
+  const valorTempo = Math.max(1, parseInt(document.getElementById('promoTempoValor').value, 10) || 1);
+  const unidade = document.getElementById('promoTempoUnidade').value;
+
+  let msDuracao = valorTempo * 86400000; // padrão dias
+  if (unidade === 'minutos') msDuracao = valorTempo * 60000;
+  else if (unidade === 'horas') msDuracao = valorTempo * 3600000;
+
+  const agora = Date.now();
+  const expiraEm = new Date(agora + msDuracao).toISOString();
+
+  const novaPromo = {
+    id: String(agora),
+    nome,
+    categoria,
+    texto,
+    whatsapp,
+    instagram,
+    duracaoTexto: `${valorTempo} ${unidade}`,
+    criadoEm: new Date(agora).toISOString(),
+    expiraEm,
+    ativa: true
+  };
+
+  propagandas.unshift(novaPromo);
+  localStorage.setItem(PROPAGANDAS_LOCAL_KEY, JSON.stringify(propagandas));
+  document.getElementById('formPropagandaMaster').reset();
+  document.getElementById('promoTempoValor').value = '7';
+  document.getElementById('promoTempoUnidade').value = 'dias';
+
+  renderAll();
+  renderListaPropagandasMaster();
+  mostrarToast(`Propaganda de "${nome}" ativada no topo por ${valorTempo} ${unidade}!`);
+
+  if (db && isFirebaseConnected) {
+    try {
+      await db.collection('propagandas').doc(novaPromo.id).set(novaPromo);
+    } catch (err) {
+      console.error('Erro ao salvar propaganda no Firebase:', err);
+    }
+  }
+}
+
+async function excluirPropagandaMaster(id) {
+  if (!isMasterAdmin()) return;
+  if (!confirm('Deseja remover esta propaganda?')) return;
+
+  propagandas = propagandas.filter((p) => String(p.id) !== String(id));
+  localStorage.setItem(PROPAGANDAS_LOCAL_KEY, JSON.stringify(propagandas));
+  renderAll();
+  renderListaPropagandasMaster();
+  mostrarToast('Propaganda removida.');
+
+  if (db && isFirebaseConnected) {
+    try {
+      await db.collection('propagandas').doc(String(id)).delete();
+    } catch (err) {
+      console.error('Erro ao excluir propaganda:', err);
+    }
+  }
+}
+
+function renderListaPropagandasMaster() {
+  const container = document.getElementById('listaPropagandasMaster');
+  if (!container) return;
+
+  if (propagandas.length === 0) {
+    container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 bg-white rounded-2xl border border-slate-200">Nenhuma propaganda cadastrada no momento.</p>`;
+    return;
+  }
+
+  container.innerHTML = propagandas
+    .map((p) => {
+      const tempoStr = formatarTempoRestante(p.expiraEm);
+      const isAtiva = tempoStr !== 'Expirada' && p.ativa !== false;
+      const badgeStatus = isAtiva
+        ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">Ativa • ${tempoStr}</span>`
+        : `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-600">Expirada</span>`;
+
+      return `
+        <div class="p-3.5 bg-white rounded-2xl border ${isAtiva ? 'border-amber-400' : 'border-slate-200'} flex items-center justify-between gap-3 shadow-sm">
+          <div class="min-w-0 flex-1 space-y-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h5 class="font-extrabold text-sm text-slate-900">${escapeHtml(p.nome)}</h5>
+              ${badgeStatus}
+            </div>
+            <p class="text-xs text-slate-600 truncate">${escapeHtml(p.categoria)} — ${escapeHtml(p.texto)}</p>
+          </div>
+          <button
+            type="button"
+            onclick="excluirPropagandaMaster('${p.id}')"
+            class="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition shrink-0"
+            title="Excluir Propaganda"
+          >
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      `;
+    })
+    .join('');
 }
 
 // ==========================================
