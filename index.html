@@ -204,56 +204,63 @@
       class="hidden w-full sm:w-[460px] lg:w-[500px] bg-white border-l border-slate-200 flex-col z-20 absolute lg:relative inset-y-0 right-0 shadow-2xl select-text"
     >
       <!-- Admin Header -->
-      <div class="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
-            <i data-lucide="settings" class="w-5 h-5"></i>
+      <div class="p-3.5 bg-slate-900 text-white space-y-2.5 shrink-0 border-b border-slate-800">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold shrink-0">
+              <i data-lucide="settings" class="w-5 h-5"></i>
+            </div>
+            <div class="min-w-0">
+              <h2 class="font-bold text-sm leading-tight flex items-center gap-1.5">
+                <span>Painel ADM</span>
+                <span id="badgeMasterRole" class="hidden text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">MASTER</span>
+              </h2>
+              <p id="lblAdminRoleSubtitle" class="text-[11px] text-slate-400 truncate">Cadastre ou edite no Mapa e Menu Lateral</p>
+            </div>
           </div>
-          <div>
-            <h2 class="font-bold text-sm leading-tight flex items-center gap-1.5">
-              <span>Painel ADM</span>
-              <span id="badgeMasterRole" class="hidden text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">MASTER</span>
-            </h2>
-            <p id="lblAdminRoleSubtitle" class="text-[11px] text-slate-400">Cadastre ou edite no Mapa e Menu Lateral</p>
+
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="openCloudConfigModal()" id="btnMasterCloudConfig" class="hidden p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs items-center gap-1.5" title="Status do Firebase">
+              <span id="firebaseStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+              <i data-lucide="database" class="w-4 h-4 text-amber-400"></i>
+            </button>
+            <button onclick="handleAdminLogout()" class="p-2 rounded-lg bg-red-950/60 hover:bg-red-900/80 text-red-300 text-xs flex items-center gap-1" title="Sair do Painel ADM">
+              <i data-lucide="log-out" class="w-4 h-4"></i>
+            </button>
+            <button onclick="switchView('public')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300" title="Fechar Painel ADM">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
           </div>
         </div>
-        <div class="flex items-center gap-1.5">
+
+        <!-- Barra de Ferramentas Exclusiva do ADM Master (Propaganda | Extrair Relatório | Dashboard) -->
+        <div id="barMasterTools" class="hidden grid-cols-3 gap-2 pt-1">
           <button
             id="btnMasterPropaganda"
             onclick="openAdminPropagandaModal()"
-            class="hidden px-2.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold items-center gap-1.5 shadow"
+            class="py-2 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center justify-center gap-1.5 shadow transition"
             title="Criar e Gerenciar Prestador Propaganda (Exclusivo Master)"
           >
-            <i data-lucide="megaphone" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">Propaganda</span>
+            <i data-lucide="megaphone" class="w-4 h-4 shrink-0"></i>
+            <span class="truncate">Propaganda</span>
           </button>
           <button
             id="btnMasterRelatorio"
             onclick="openAdminRelatorioModal()"
-            class="hidden px-2.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold items-center gap-1.5 shadow"
+            class="py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow transition"
             title="Extrair Relatório Completo por Categorias (Exclusivo Master)"
           >
-            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">Relatório</span>
+            <i data-lucide="file-spreadsheet" class="w-4 h-4 shrink-0"></i>
+            <span class="truncate">Extrair Relatório</span>
           </button>
           <button
             id="btnMasterDashboard"
             onclick="openAdminDashboard()"
-            class="hidden px-2.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold items-center gap-1.5 shadow"
+            class="py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow transition"
             title="Abrir Página de Dashboard (Exclusivo Master)"
           >
-            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">Dashboard</span>
-          </button>
-          <button onclick="openCloudConfigModal()" id="btnMasterCloudConfig" class="hidden p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs items-center gap-1.5" title="Status do Firebase">
-            <span id="firebaseStatusDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
-            <i data-lucide="database" class="w-4 h-4 text-amber-400"></i>
-          </button>
-          <button onclick="handleAdminLogout()" class="p-2 rounded-lg bg-red-950/60 hover:bg-red-900/80 text-red-300 text-xs flex items-center gap-1" title="Sair do Painel ADM">
-            <i data-lucide="log-out" class="w-4 h-4"></i>
-          </button>
-          <button onclick="switchView('public')" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300" title="Fechar Painel ADM">
-            <i data-lucide="x" class="w-4 h-4"></i>
+            <i data-lucide="bar-chart-3" class="w-4 h-4 shrink-0"></i>
+            <span class="truncate">Dashboard</span>
           </button>
         </div>
       </div>
@@ -1218,6 +1225,6 @@
   </div>
 
   <!-- Main Script -->
-  <script src="./app.js?v=4"></script>
+  <script src="./app.js?v=5"></script>
 </body>
 </html>

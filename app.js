@@ -810,6 +810,7 @@ function isMasterAdmin() {
 function aplicarPermissoesRoleAdmin() {
   const master = isMasterAdmin();
   const badgeMaster = document.getElementById('badgeMasterRole');
+  const barMaster = document.getElementById('barMasterTools');
   const btnPromo = document.getElementById('btnMasterPropaganda');
   const btnRel = document.getElementById('btnMasterRelatorio');
   const btnDash = document.getElementById('btnMasterDashboard');
@@ -817,6 +818,10 @@ function aplicarPermissoesRoleAdmin() {
   const lblSub = document.getElementById('lblAdminRoleSubtitle');
 
   if (badgeMaster) badgeMaster.classList.toggle('hidden', !master);
+  if (barMaster) {
+    barMaster.classList.toggle('hidden', !master);
+    barMaster.classList.toggle('grid', master);
+  }
   if (btnPromo) {
     btnPromo.classList.toggle('hidden', !master);
     btnPromo.classList.toggle('flex', master);

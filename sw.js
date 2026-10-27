@@ -1,4 +1,4 @@
-const CACHE_NAME = 'guia-comercial-pwa-v4';
+const CACHE_NAME = 'guia-comercial-pwa-v5';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
