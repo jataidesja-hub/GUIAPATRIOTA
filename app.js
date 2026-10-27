@@ -1934,6 +1934,46 @@ function salvarAnalyticsLocal() {
   localStorage.setItem(ANALYTICS_LOCAL_KEY, JSON.stringify(dadosEstatisticas));
 }
 
+function extrairEstatisticasBlindadas(remoto = {}) {
+  const blindado = remoto.historicoBlindado || {};
+  const porDiaMerged = { ...(remoto.porDia || {}) };
+  Object.entries(blindado.porDia || {}).forEach(([k, v]) => {
+    porDiaMerged[k] = Math.max(Number(porDiaMerged[k] || 0), Number(v || 0));
+  });
+
+  const porMesMerged = { ...(remoto.porMes || {}) };
+  Object.entries(blindado.porMes || {}).forEach(([k, v]) => {
+    porMesMerged[k] = Math.max(Number(porMesMerged[k] || 0), Number(v || 0));
+  });
+
+  let somaDias = 0;
+  Object.entries(porDiaMerged).forEach(([diaKey, v]) => {
+    const n = Number(v || 0);
+    somaDias += n;
+    const mKey = String(diaKey).slice(0, 7);
+    if (mKey) {
+      porMesMerged[mKey] = Math.max(Number(porMesMerged[mKey] || 0), 0);
+    }
+  });
+
+  const totalGeral = Math.max(
+    Number(remoto.totalGeral || 0),
+    Number(blindado.totalGeral || 0),
+    somaDias
+  );
+  const cliquesWhatsapp = Math.max(
+    Number(remoto.cliquesWhatsapp || 0),
+    Number(blindado.cliquesWhatsapp || 0)
+  );
+
+  return {
+    totalGeral,
+    cliquesWhatsapp,
+    porDia: porDiaMerged,
+    porMes: porMesMerged
+  };
+}
+
 async function registrarAcessoVisita() {
   carregarAnalyticsLocal();
 
@@ -1944,25 +1984,31 @@ async function registrarAcessoVisita() {
   if (db) {
     try {
       const docRef = db.collection('estatisticas').doc('acessos');
-      const snap = await docRef.get();
-      if (snap.exists) {
-        const remoto = snap.data() || {};
-        dadosEstatisticas = {
-          totalGeral: Number(remoto.totalGeral || 0),
-          cliquesWhatsapp: Number(remoto.cliquesWhatsapp || 0),
-          porDia: remoto.porDia || {},
-          porMes: remoto.porMes || {}
-        };
+
+      // Usa incremento atômico no servidor (FieldValue.increment) para NUNCA sobrescrever nem zerar contadores
+      if (!jaContouSessao) {
+        const inc = firebase.firestore.FieldValue.increment(1);
+        sessionStorage.setItem('guia_sessao_contabilizada', 'true');
+        await docRef.set(
+          {
+            totalGeral: inc,
+            porDia: { [hoje]: inc },
+            porMes: { [mes]: inc },
+            historicoBlindado: {
+              totalGeral: inc,
+              porDia: { [hoje]: inc },
+              porMes: { [mes]: inc }
+            }
+          },
+          { merge: true }
+        );
       }
 
-      if (!jaContouSessao) {
-        dadosEstatisticas.totalGeral += 1;
-        dadosEstatisticas.porDia[hoje] = Number(dadosEstatisticas.porDia[hoje] || 0) + 1;
-        dadosEstatisticas.porMes[mes] = Number(dadosEstatisticas.porMes[mes] || 0) + 1;
-        sessionStorage.setItem('guia_sessao_contabilizada', 'true');
-        await docRef.set(dadosEstatisticas, { merge: true });
+      const snap = await docRef.get();
+      if (snap.exists) {
+        dadosEstatisticas = extrairEstatisticasBlindadas(snap.data() || {});
+        salvarAnalyticsLocal();
       }
-      salvarAnalyticsLocal();
       return;
     } catch (err) {
       console.warn('Analytics local fallback:', err);
@@ -1985,8 +2031,14 @@ async function registrarCliqueWhatsapp() {
 
   if (db) {
     try {
+      const inc = firebase.firestore.FieldValue.increment(1);
       await db.collection('estatisticas').doc('acessos').set(
-        { cliquesWhatsapp: dadosEstatisticas.cliquesWhatsapp },
+        {
+          cliquesWhatsapp: inc,
+          historicoBlindado: {
+            cliquesWhatsapp: inc
+          }
+        },
         { merge: true }
       );
     } catch (e) {
@@ -1994,6 +2046,8 @@ async function registrarCliqueWhatsapp() {
     }
   }
 }
+
+let unsubscribeEstatisticas = null;
 
 async function openAdminDashboard() {
   if (!isMasterAdmin()) {
@@ -2005,17 +2059,17 @@ async function openAdminDashboard() {
 
   if (db) {
     try {
-      const snap = await db.collection('estatisticas').doc('acessos').get();
-      if (snap.exists) {
-        const remoto = snap.data() || {};
-        dadosEstatisticas = {
-          totalGeral: Number(remoto.totalGeral || 0),
-          cliquesWhatsapp: Number(remoto.cliquesWhatsapp || 0),
-          porDia: remoto.porDia || {},
-          porMes: remoto.porMes || {}
-        };
-        salvarAnalyticsLocal();
+      if (unsubscribeEstatisticas) {
+        unsubscribeEstatisticas();
       }
+      unsubscribeEstatisticas = db.collection('estatisticas').doc('acessos').onSnapshot((snap) => {
+        if (snap.exists) {
+          dadosEstatisticas = extrairEstatisticasBlindadas(snap.data() || {});
+          salvarAnalyticsLocal();
+          renderDashboardData();
+          lucide.createIcons();
+        }
+      });
     } catch (e) {
       console.warn(e);
     }
@@ -2026,6 +2080,10 @@ async function openAdminDashboard() {
 }
 
 function closeAdminDashboard() {
+  if (unsubscribeEstatisticas) {
+    unsubscribeEstatisticas();
+    unsubscribeEstatisticas = null;
+  }
   document.getElementById('modalAdminDashboard').classList.add('hidden');
 }
 
@@ -2040,6 +2098,18 @@ function renderDashboardData() {
   const hoje = obterChaveDiaHoje();
   const mesAtual = obterChaveMesAtual();
 
+  // Garante consistência entre soma diária, mensal e total geral
+  let somaTodosDias = 0;
+  const somaPorMesCalculada = {};
+  Object.entries(dadosEstatisticas.porDia || {}).forEach(([diaKey, valor]) => {
+    const num = Number(valor || 0);
+    somaTodosDias += num;
+    const mKey = String(diaKey).slice(0, 7);
+    if (mKey) {
+      somaPorMesCalculada[mKey] = (somaPorMesCalculada[mKey] || 0) + num;
+    }
+  });
+
   // 1. Calcular acessos últimos 7 dias
   let soma7Dias = 0;
   for (let i = 0; i < 7; i++) {
@@ -2050,8 +2120,11 @@ function renderDashboardData() {
   }
 
   const acessosHoje = Number(dadosEstatisticas.porDia[hoje] || 0);
-  const acessosMes = Number(dadosEstatisticas.porMes[mesAtual] || 0);
-  const acessosTotal = Number(dadosEstatisticas.totalGeral || 0);
+  const acessosMes = Math.max(
+    Number(dadosEstatisticas.porMes[mesAtual] || 0),
+    Number(somaPorMesCalculada[mesAtual] || 0)
+  );
+  const acessosTotal = Math.max(Number(dadosEstatisticas.totalGeral || 0), somaTodosDias);
   const cliquesZap = Number(dadosEstatisticas.cliquesWhatsapp || 0);
 
   document.getElementById('dashAcessosHoje').textContent = acessosHoje;
@@ -2109,12 +2182,12 @@ function renderDashboardData() {
     .join('');
 
   // 4. Histórico de Acessos por Mês
-  const mesesChaves = Object.keys(dadosEstatisticas.porMes || {}).sort().reverse();
+  const mesesChaves = [...new Set([...Object.keys(dadosEstatisticas.porMes || {}), ...Object.keys(somaPorMesCalculada)])].sort().reverse();
   if (!mesesChaves.includes(mesAtual)) mesesChaves.unshift(mesAtual);
   const listaMensalEl = document.getElementById('dashListaMensal');
   listaMensalEl.innerHTML = mesesChaves
     .map((mKey) => {
-      const qtd = Number(dadosEstatisticas.porMes[mKey] || 0);
+      const qtd = Math.max(Number(dadosEstatisticas.porMes[mKey] || 0), Number(somaPorMesCalculada[mKey] || 0));
       return `
         <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
           <span class="font-bold text-slate-700">${formatarNomeMes(mKey)}</span>
